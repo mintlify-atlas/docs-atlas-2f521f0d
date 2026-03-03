@@ -1,0 +1,145 @@
+{
+  "projectType": "saas",
+  "projectName": "Mattermost",
+  "projectDescription": "Open source platform for secure collaboration across the entire software development lifecycle",
+  "theme": "aspen",
+  "primaryColor": "#0058CC",
+  "lightColor": "#1C58D9",
+  "darkColor": "#004A9F",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/messaging",
+              "features/channels",
+              "features/teams",
+              "features/integrations",
+              "features/plugins",
+              "features/workflows",
+              "features/calls"
+            ]
+          },
+          {
+            "group": "Administration",
+            "pages": [
+              "admin/configuration",
+              "admin/user-management",
+              "admin/security",
+              "admin/deployment",
+              "admin/backup-restore",
+              "admin/monitoring"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/overview",
+              "integrations/webhooks",
+              "integrations/slash-commands",
+              "integrations/oauth",
+              "integrations/plugins"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "dev/setup",
+              "dev/architecture",
+              "dev/contributing"
+            ]
+          },
+          {
+            "group": "Plugin Development",
+            "pages": [
+              "dev/plugins/overview",
+              "dev/plugins/quickstart",
+              "dev/plugins/server",
+              "dev/plugins/webapp",
+              "dev/plugins/manifest",
+              "dev/plugins/best-practices"
+            ]
+          },
+          {
+            "group": "API Reference",
+            "pages": [
+              "api/overview",
+              "api/authentication",
+              "api/users",
+              "api/teams",
+              "api/channels",
+              "api/posts",
+              "api/files",
+              "api/webhooks",
+              "api/plugins"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Tools",
+        "groups": [
+          {
+            "group": "mmctl",
+            "pages": [
+              "cli/overview",
+              "cli/installation",
+              "cli/authentication",
+              "cli/commands"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Real-time messaging and collaboration",
+    "Channels and teams organization",
+    "Voice calls and screen sharing",
+    "Plugin system for extensibility",
+    "Slash commands and webhooks",
+    "Workflow automation",
+    "REST API for integrations",
+    "Self-hosted deployment",
+    "Enterprise security features",
+    "Mobile and desktop applications",
+    "Search and file sharing",
+    "mmctl CLI tool for administration"
+  ],
+  "publicApiSurface": [
+    "POST /api/v4/users",
+    "POST /api/v4/teams",
+    "POST /api/v4/channels",
+    "POST /api/v4/posts",
+    "GET /api/v4/users/me",
+    "GET /api/v4/teams/{team_id}/channels",
+    "POST /api/v4/files",
+    "POST /api/v4/webhooks/incoming",
+    "POST /api/v4/webhooks/outgoing",
+    "POST /api/v4/commands",
+    "GET /api/v4/plugins",
+    "POST /api/v4/plugins/install",
+    "mmctl auth login",
+    "mmctl user create",
+    "mmctl team create",
+    "mmctl channel create",
+    "mmctl config get",
+    "mmctl plugin install"
+  ]
+}
