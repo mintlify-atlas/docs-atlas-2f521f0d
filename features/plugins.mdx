@@ -1,0 +1,594 @@
+---
+title: Plugins
+description: Extend and customize Mattermost with powerful plugins that add new features and integrations
+---
+
+Plugins are powerful extensions that add new capabilities to Mattermost. Unlike webhooks and slash commands, plugins run directly within Mattermost and can modify both the server and user interface to create deeply integrated experiences.
+
+## What are Plugins?
+
+<CardGroup cols={2}>
+  <Card title="Server Extensions" icon="server">
+    Add backend functionality with Go-based server plugins
+  </Card>
+  
+  <Card title="UI Customization" icon="paintbrush">
+    Enhance the interface with React-based webapp components
+  </Card>
+  
+  <Card title="Deep Integration" icon="puzzle-piece">
+    Access Mattermost APIs and data directly from within the platform
+  </Card>
+  
+  <Card title="Marketplace Ready" icon="store">
+    Discover and install plugins from the Mattermost Marketplace
+  </Card>
+</CardGroup>
+
+## Plugin Capabilities
+
+Plugins can extend Mattermost in ways that webhooks and integrations cannot:
+
+### What Plugins Can Do
+
+**Server-Side**:
+- Hook into message posting and editing lifecycle
+- Create custom API endpoints
+- Store data in plugin-specific databases
+- Schedule background jobs and recurring tasks
+- Intercept and modify messages before posting
+- Add custom authentication methods
+- Integrate with external services securely
+
+**Client-Side**:
+- Add custom UI components and panels
+- Modify the channel header and post dropdowns
+- Create custom right-hand sidebar panels
+- Add buttons to the channel interface
+- Override existing UI behaviors
+- Add custom routes and pages
+- Style components with custom CSS
+
+**API Access**:
+- Full access to Mattermost REST API
+- Read and write posts, channels, users
+- Manage team and channel memberships
+- Access file storage
+- Send WebSocket events to clients
+- Create and manage bot accounts
+
+<Note>
+Plugins have access to powerful APIs and hooks. Only install plugins from trusted sources.
+</Note>
+
+## Popular Plugins
+
+### Communication & Collaboration
+
+**Calls Plugin**
+- Voice calls and screen sharing
+- Video conferencing within channels
+- Recording and transcription
+- Call notifications and presence
+
+**Channel Export Plugin**  
+- Export channel messages to various formats
+- Compliance and archival
+- Data portability
+
+**Zoom Plugin**
+- Start Zoom meetings from Mattermost
+- Meeting notifications in channels
+- Calendar integration
+
+### Development & DevOps
+
+**GitHub Plugin**
+- Repository subscriptions
+- Pull request and issue notifications
+- Code review workflows
+- Slash commands for GitHub actions
+- Two-way synchronization
+
+**GitLab Plugin**
+- Merge request notifications
+- Pipeline status updates  
+- Issue tracking
+- Slash commands for GitLab
+
+**Jira Plugin**
+- Issue creation and updates
+- JQL subscriptions
+- Webhook notifications
+- Transition issues from chat
+
+**Jenkins Plugin**
+- Build notifications
+- Trigger builds from chat
+- Build parameter input
+- Test result summaries
+
+### Productivity
+
+**Todo Plugin**
+- Task management within Mattermost
+- Create todos from messages
+- Daily reminders
+- Team task visibility
+
+**Agenda Plugin**
+- Meeting agenda management
+- Action item tracking
+- Meeting notes in channels
+
+**Polls Plugin**
+- Create polls in channels
+- Real-time voting results
+- Anonymous voting options
+- Single and multiple choice
+
+### AI & Automation
+
+**AI Plugin**
+- ChatGPT integration
+- Thread summarization
+- Message assistance and drafting
+- Custom AI prompts
+- Multiple LLM support
+
+**Playbooks Plugin**
+- Incident response workflows
+- Runbook automation
+- Task checklists and assignments
+- Retrospectives and analytics
+- Custom workflows for any process
+
+**Workflow Plugin**
+- Visual workflow builder
+- Automation triggers and actions
+- Scheduled workflows
+- External integrations
+
+## Installing Plugins
+
+### From the Marketplace
+
+1. Navigate to **Product menu** → **Marketplace**
+2. Browse available plugins
+3. Click **Install** on desired plugin
+4. Configure plugin settings
+5. Enable the plugin
+
+<Tip>
+The Marketplace shows compatibility with your Mattermost version. Only compatible plugins can be installed.
+</Tip>
+
+### Manual Installation
+
+**System Admins** can manually upload plugins:
+
+1. Download plugin `.tar.gz` file
+2. Navigate to **System Console** → **Plugins** → **Plugin Management**
+3. Click **Upload Plugin**
+4. Select the downloaded file
+5. Configure and enable the plugin
+
+```bash
+# Alternative: CLI installation
+mmctl plugin add plugin-file.tar.gz
+mmctl plugin enable plugin-id
+```
+
+### Prepackaged Plugins
+
+Some plugins come pre-installed with Mattermost:
+
+- **Calls** - Voice and video calling
+- **Playbooks** - Workflow automation
+- **NPS** - User satisfaction surveys
+
+These plugins are bundled in the `prepackaged_plugins` directory and can be enabled without downloading.
+
+## Plugin Configuration
+
+### Plugin Settings
+
+Each plugin has its own configuration page:
+
+1. Navigate to **System Console** → **Plugins**
+2. Find the plugin in the installed list
+3. Click **Settings**
+4. Configure plugin-specific options:
+   - API credentials
+   - Webhook URLs
+   - Feature toggles
+   - Permission settings
+   - Bot account configuration
+
+### Plugin States
+
+Plugins can be in different states:
+
+```go
+// From source code
+type PluginState struct {
+    Enable bool  // Plugin enabled/disabled
+}
+
+// Plugin activation states
+- Available: Installed but not enabled
+- Enabled: Configured to run but may not be active
+- Active: Currently running
+- Error: Failed to activate (see logs)
+```
+
+**Enabling a Plugin**:
+```yaml
+PluginSettings:
+  Enable: true
+  PluginStates:
+    com.mattermost.calls:
+      Enable: true
+    github:
+      Enable: true
+```
+
+### Plugin Permissions
+
+Control what plugins can do:
+
+- **System Console Access**: Which plugins can modify settings
+- **User Permissions**: Who can interact with plugin features  
+- **Channel Restrictions**: Limit plugin functionality to specific channels
+- **API Access**: Scope of API operations allowed
+
+## Plugin Architecture
+
+### Plugin Structure
+
+A typical plugin contains:
+
+```
+plugin-name/
+├── plugin.json          # Plugin manifest
+├── server/              # Backend code (Go)
+│   ├── plugin.go        # Main plugin file
+│   ├── api.go           # API endpoints
+│   └── hooks.go         # Event hooks
+├── webapp/              # Frontend code (React/TypeScript)
+│   ├── src/
+│   │   ├── index.tsx    # Main entry point
+│   │   ├── components/  # UI components
+│   │   └── actions.ts   # Redux actions
+│   └── webpack.config.js
+└── assets/              # Images, icons, etc.
+```
+
+### Plugin Manifest
+
+`plugin.json` defines plugin metadata:
+
+```json
+{
+  "id": "com.example.plugin",
+  "name": "Example Plugin",
+  "description": "Does something useful",
+  "version": "1.0.0",
+  "min_server_version": "7.0.0",
+  "server": {
+    "executable": "server/plugin.exe"
+  },
+  "webapp": {
+    "bundle_path": "webapp/dist/main.js"
+  },
+  "settings_schema": {
+    "settings": [
+      {
+        "key": "ApiToken",
+        "display_name": "API Token",
+        "type": "text",
+        "help_text": "Enter your API token"
+      }
+    ]
+  }
+}
+```
+
+### Plugin Hooks
+
+Plugins can hook into Mattermost events:
+
+**Message Hooks**:
+- `MessageWillBePosted` - Intercept before posting
+- `MessageWillBeUpdated` - Intercept before editing
+- `MessageHasBeenPosted` - React after posting
+- `MessageHasBeenUpdated` - React after editing
+
+**User Hooks**:
+- `UserHasBeenCreated` - New user created
+- `UserHasLoggedIn` - User logged in
+- `UserWillLogIn` - Before login completes
+
+**Channel Hooks**:
+- `ChannelHasBeenCreated` - New channel created
+- `UserHasJoinedChannel` - User joined channel
+- `UserHasLeftChannel` - User left channel
+
+**Example Hook**:
+```go
+func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*model.Post, string) {
+    // Modify post before it's saved
+    if strings.Contains(post.Message, "urgent") {
+        post.Props["priority"] = "high"
+    }
+    return post, ""
+}
+```
+
+## Plugin Management
+
+### Enabling/Disabling Plugins
+
+**Via System Console**:
+1. Navigate to **System Console** → **Plugins** → **Plugin Management**
+2. Find plugin in list
+3. Toggle **Enable Plugin** switch
+4. Plugin activates immediately (no restart required)
+
+**Via Configuration**:
+```yaml
+PluginSettings:
+  Enable: true
+  PluginStates:
+    plugin-id:
+      Enable: false  # Disable specific plugin
+```
+
+### Updating Plugins
+
+**Marketplace Updates**:
+1. Marketplace shows update notifications
+2. Click **Update** next to plugin
+3. Plugin updates automatically
+4. Restart if required (rare)
+
+**Manual Updates**:
+1. Download new version
+2. Upload via **Plugin Management**
+3. Old version is replaced
+4. Configuration preserved
+
+### Uninstalling Plugins
+
+1. Disable the plugin first
+2. Click **Remove** in Plugin Management
+3. Confirm deletion
+4. Plugin files deleted
+5. Configuration data can be preserved or deleted
+
+<Warning>
+Uninstalling a plugin may delete its data. Export important data before uninstalling.
+</Warning>
+
+## Plugin Health and Monitoring
+
+### Plugin Status
+
+Monitor plugin health:
+
+```bash
+# Check plugin status via CLI
+mmctl plugin list
+
+# Output shows:
+# - Plugin ID
+# - Version
+# - Status (Enabled/Disabled/Error)
+```
+
+**Status Indicators**:
+- ✅ **Active**: Running normally
+- ⚠️ **Error**: Failed to start (check logs)
+- ⏸️ **Disabled**: Intentionally turned off
+- 🔄 **Updating**: Update in progress
+
+### Plugin Logs
+
+View plugin-specific logs:
+
+```bash
+# Server logs include plugin messages
+tail -f mattermost.log | grep "plugin_id"
+
+# Common log patterns:
+[INFO] Plugin activated successfully
+[ERROR] Plugin failed to initialize: connection timeout
+[WARN] Plugin API call rate limited
+```
+
+### Health Checks
+
+Plugins can implement health checks:
+
+```go
+func (p *Plugin) GetPluginHealthCheck() error {
+    // Return nil if healthy, error if not
+    if p.apiClient == nil {
+        return errors.New("API client not initialized")
+    }
+    return nil
+}
+```
+
+## Plugin Performance
+
+### Resource Usage
+
+Plugins consume server resources:
+
+- **CPU**: Processing hooks and background jobs
+- **Memory**: Storing state and caching data
+- **Network**: External API calls
+- **Database**: Plugin-specific data storage
+
+<Tip>
+Monitor plugin resource usage in high-traffic environments. Disable problematic plugins if needed.
+</Tip>
+
+### Performance Best Practices
+
+1. **Async Processing**: Don't block message posting
+2. **Caching**: Cache external API responses
+3. **Rate Limiting**: Respect external API limits
+4. **Batch Operations**: Combine multiple operations
+5. **Cleanup**: Remove old data regularly
+
+### Plugin Sandboxing
+
+Plugins run in isolated processes:
+
+- Separate from main server process
+- Crashes don't affect Mattermost
+- Configurable memory and CPU limits
+- Automatic restart on failure
+
+## Developing Plugins
+
+### Plugin SDK
+
+Mattermost provides SDKs for plugin development:
+
+**Server SDK (Go)**:
+```go
+import "github.com/mattermost/mattermost/server/public/plugin"
+
+type Plugin struct {
+    plugin.MattermostPlugin
+}
+
+func (p *Plugin) OnActivate() error {
+    // Plugin initialization
+    return nil
+}
+```
+
+**Webapp SDK (TypeScript/React)**:
+```typescript
+import {Store, Action} from 'mattermost-redux/types/actions';
+
+export default class Plugin {
+    initialize(registry: any, store: Store) {
+        // Register UI components
+        registry.registerRightHandSidebarComponent(
+            CustomSidebar,
+            'Custom Panel'
+        );
+    }
+}
+```
+
+### Plugin Template
+
+Start developing with the official template:
+
+```bash
+git clone https://github.com/mattermost/mattermost-plugin-starter-template
+cd mattermost-plugin-starter-template
+make
+```
+
+### Plugin API
+
+Access Mattermost functionality:
+
+```go
+// Create a post
+post := &model.Post{
+    UserId:    "user-id",
+    ChannelId: "channel-id",
+    Message:   "Hello from plugin!",
+}
+p.API.CreatePost(post)
+
+// Get user
+user, err := p.API.GetUser("user-id")
+
+// Store data
+p.API.KVSet("key", []byte("value"))
+data, err := p.API.KVGet("key")
+```
+
+## Plugin Security
+
+### Security Considerations
+
+1. **Code Review**: Review plugin code before installation
+2. **Trusted Sources**: Only install from Marketplace or trusted developers
+3. **Permissions**: Limit plugin access to necessary APIs
+4. **Updates**: Keep plugins updated for security fixes
+5. **Monitoring**: Watch for unusual plugin behavior
+
+### Plugin Signatures
+
+Verify plugin authenticity:
+
+- Marketplace plugins are signed by Mattermost
+- Signature verification prevents tampering
+- Can require signed plugins via configuration
+
+```yaml
+PluginSettings:
+  RequirePluginSignature: true
+```
+
+### Plugin Isolation
+
+Plugins are isolated for security:
+
+- Run in separate processes
+- Limited file system access
+- API permissions enforced
+- Network access controllable
+
+<Warning>
+Plugins have significant access to your Mattermost instance. Only install plugins you trust.
+</Warning>
+
+## Plugin Ecosystem
+
+### Marketplace
+
+Browse 100+ plugins in the Mattermost Marketplace:
+
+- **Categories**: DevOps, Productivity, AI, Communication
+- **Filters**: Free/Paid, Cloud/Self-hosted compatible
+- **Ratings**: Community reviews and ratings
+- **Support**: Official and community support
+
+Visit: **Product Menu** → **Marketplace**
+
+### Community Plugins
+
+Find community-developed plugins:
+
+- GitHub: [github.com/mattermost-community](https://github.com/mattermost-community)
+- Forum: [forum.mattermost.com](https://forum.mattermost.com)
+- Integrations directory: [integrations.mattermost.com](https://integrations.mattermost.com)
+
+### Custom Development
+
+Build plugins for your organization:
+
+1. **Identify need**: Feature or integration required
+2. **Design**: Plan UI and functionality
+3. **Develop**: Use plugin SDK and template
+4. **Test**: Validate on test instance
+5. **Deploy**: Install on production
+6. **Maintain**: Update and monitor
+
+## Related Features
+
+- [Integrations](/features/integrations) - Webhooks and slash commands
+- [Workflows](/features/workflows) - Automation with Playbooks
+- [Calls](/features/calls) - Voice and video powered by plugin
+- [Messaging](/features/messaging) - Core messaging features

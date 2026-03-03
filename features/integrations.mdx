@@ -1,0 +1,531 @@
+---
+title: Integrations
+description: Connect Mattermost with external tools and services to streamline your workflow
+---
+
+Mattermost provides powerful integration capabilities that allow you to connect with external tools, automate workflows, and extend functionality. Build custom integrations or use pre-built ones from the Mattermost Marketplace.
+
+## Integration Overview
+
+<CardGroup cols={2}>
+  <Card title="Incoming Webhooks" icon="download">
+    Send messages to Mattermost from external applications
+  </Card>
+  
+  <Card title="Outgoing Webhooks" icon="upload">
+    Trigger external services when messages match patterns
+  </Card>
+  
+  <Card title="Slash Commands" icon="terminal">
+    Execute custom commands directly from the message input
+  </Card>
+  
+  <Card title="OAuth 2.0 Apps" icon="key">
+    Build third-party applications with secure user authorization
+  </Card>
+</CardGroup>
+
+## Incoming Webhooks
+
+Send messages to Mattermost channels from external applications without requiring a Mattermost user account.
+
+### How Incoming Webhooks Work
+
+1. Create an incoming webhook in Mattermost
+2. Receive a unique webhook URL
+3. POST JSON payloads to the URL from your application
+4. Messages appear in the specified channel
+
+### Creating an Incoming Webhook
+
+1. Navigate to **Integrations** in the main menu
+2. Select **Incoming Webhooks** → **Add Incoming Webhook**
+3. Configure:
+   - **Title**: Descriptive name for the webhook
+   - **Description**: Purpose and usage notes
+   - **Channel**: Default destination channel
+   - **Lock to channel**: Force all posts to specified channel
+   - **Username**: Display name for webhook posts
+   - **Icon**: Custom avatar for the webhook
+
+### Sending Messages
+
+POST a JSON payload to the webhook URL:
+
+```bash
+curl -i -X POST -H 'Content-Type: application/json' \
+  -d '{
+    "text": "Hello from external app!",
+    "channel": "town-square",
+    "username": "MyBot",
+    "icon_emoji": ":ghost:"
+  }' \
+  https://your-mattermost-server.com/hooks/xxx-generatedkey-xxx
+```
+
+### Advanced Payload Options
+
+```json
+{
+  "text": "Main message text",
+  "channel": "channel-name",
+  "username": "CustomBot",
+  "icon_url": "https://example.com/icon.png",
+  "icon_emoji": ":chart_with_upwards_trend:",
+  "attachments": [
+    {
+      "fallback": "test",
+      "color": "#FF8000",
+      "pretext": "Optional pretext",
+      "text": "Detailed message text",
+      "title": "Attachment Title",
+      "title_link": "https://example.com",
+      "fields": [
+        {
+          "short": false,
+          "title": "Priority",
+          "value": "High"
+        }
+      ],
+      "image_url": "https://example.com/image.png"
+    }
+  ],
+  "props": {
+    "custom_field": "custom_value"
+  }
+}
+```
+
+<Tip>
+Use message attachments to create rich, formatted notifications with fields, colors, and images.
+</Tip>
+
+## Outgoing Webhooks
+
+Trigger HTTP requests to external services when messages match specific criteria.
+
+### How Outgoing Webhooks Work
+
+1. User posts message in Mattermost
+2. Message matches trigger word or channel
+3. Mattermost sends payload to configured callback URL(s)
+4. External service processes request
+5. Service can respond with message to post back
+
+### Creating an Outgoing Webhook
+
+1. Navigate to **Integrations** → **Outgoing Webhooks**
+2. Click **Add Outgoing Webhook**
+3. Configure:
+   - **Title**: Webhook name
+   - **Description**: Purpose documentation
+   - **Content Type**: `application/json` or `application/x-www-form-urlencoded`
+   - **Channel**: Specific channel or leave blank for all
+   - **Trigger Words**: Words that activate webhook (comma-separated)
+   - **Trigger When**: Start of message or anywhere in message
+   - **Callback URLs**: One or more URLs to call
+
+### Trigger Words
+
+**Exact Match** (start of message):
+```
+Trigger words: jenkins, deploy
+
+Matches:
+  "jenkins build project-alpha"  ✓
+  "deploy production"            ✓
+  
+Doesn't match:  
+  "run jenkins build"            ✗
+  "let's deploy later"           ✗
+```
+
+**Starts With** (anywhere in message):
+```
+Matches partial words and any position:
+  "jenkins" matches "jenkins123"
+  "deploy" matches "deployment"
+```
+
+### Outgoing Webhook Payload
+
+Mattermost sends:
+
+```json
+{
+  "token": "webhook-token",
+  "team_id": "team-id",
+  "team_domain": "team-name",
+  "channel_id": "channel-id",
+  "channel_name": "channel-name",
+  "timestamp": 1234567890,
+  "user_id": "user-id",
+  "user_name": "username",
+  "post_id": "post-id",
+  "text": "message text",
+  "trigger_word": "matched-trigger",
+  "file_ids": "file1,file2"
+}
+```
+
+### Response Format
+
+Respond with JSON to post a message:
+
+```json
+{
+  "text": "Build started for project-alpha",
+  "username": "Jenkins Bot",
+  "icon_url": "https://example.com/jenkins.png",
+  "type": "custom_jenkins",
+  "response_type": "in_channel"
+}
+```
+
+<Note>
+Outgoing webhooks only work in public channels. They must be enabled by system administrators in the configuration.
+</Note>
+
+## Slash Commands
+
+Create custom commands that users can invoke directly from the message input box.
+
+### Built-in Commands
+
+Mattermost includes many built-in slash commands:
+
+```
+/away                  - Set status to away
+/dnd                   - Set Do Not Disturb status
+/offline               - Set status to offline  
+/online                - Set status to online
+/code [text]           - Format text as code
+/collapse              - Collapse all image previews
+/expand                - Expand all image previews
+/header [text]         - Set channel header
+/purpose [text]        - Set channel purpose
+/rename [name]         - Rename channel
+/invite @user          - Invite user to channel
+/join [channel]        - Join a channel
+/leave                 - Leave current channel
+/mute                  - Mute current channel
+/search [term]         - Search for messages
+```
+
+### Creating Custom Slash Commands
+
+1. Navigate to **Integrations** → **Slash Commands**
+2. Click **Add Slash Command**
+3. Configure:
+   - **Title**: Command name for management
+   - **Description**: What the command does
+   - **Command Trigger Word**: The command (e.g., `deploy`)
+   - **Request URL**: Endpoint to receive command
+   - **Request Method**: POST or GET
+   - **Response Username**: Bot name for responses
+   - **Response Icon**: Bot avatar
+   - **Autocomplete**: Show in command autocomplete
+   - **Autocomplete Hint**: Usage hints (e.g., `[environment]`)
+   - **Autocomplete Description**: Help text
+
+### Command Request
+
+When user types `/yourcommand arg1 arg2`, Mattermost sends:
+
+```
+POST /your-endpoint
+Content-Type: application/x-www-form-urlencoded
+
+token=token-value
+team_id=team-id
+team_domain=team-name
+channel_id=channel-id
+channel_name=channel-name  
+user_id=user-id
+user_name=username
+command=/yourcommand
+text=arg1 arg2
+trigger_id=trigger-id
+```
+
+### Command Response
+
+**Simple text response**:
+```json
+{
+  "text": "Command executed successfully!"
+}
+```
+
+**Rich response with attachments**:
+```json
+{
+  "response_type": "in_channel",
+  "text": "Deployment Status",
+  "attachments": [
+    {
+      "text": "✅ Production deployed successfully",
+      "color": "#00FF00"
+    }
+  ]
+}
+```
+
+**Response Types**:
+- `ephemeral` (default): Only visible to command user
+- `in_channel`: Visible to everyone in channel
+
+<Tip>
+Use ephemeral responses for errors or private information, and in_channel responses for results everyone should see.
+</Tip>
+
+## OAuth 2.0 Applications
+
+Build third-party applications that integrate with Mattermost using OAuth 2.0 for secure authentication.
+
+### Registering an OAuth App
+
+1. Navigate to **Integrations** → **OAuth 2.0 Applications**
+2. Click **Add OAuth 2.0 Application**
+3. Configure:
+   - **Display Name**: Application name
+   - **Description**: App purpose
+   - **Homepage**: Application website
+   - **Callback URLs**: Redirect URIs after authorization
+   - **Icon URL**: Application logo
+
+### OAuth 2.0 Flow
+
+1. **Authorization Request**:
+```
+GET /oauth/authorize?
+  response_type=code&
+  client_id=YOUR_CLIENT_ID&
+  redirect_uri=YOUR_REDIRECT_URI&
+  state=RANDOM_STATE
+```
+
+2. **User Authorizes**: User logs in and grants permissions
+
+3. **Authorization Code**: Redirect to callback with code
+```
+https://your-app.com/callback?code=AUTH_CODE&state=RANDOM_STATE
+```
+
+4. **Exchange for Access Token**:
+```bash
+curl -X POST https://your-mattermost.com/oauth/access_token \
+  -d "grant_type=authorization_code&
+      client_id=YOUR_CLIENT_ID&
+      client_secret=YOUR_CLIENT_SECRET&
+      code=AUTH_CODE&
+      redirect_uri=YOUR_REDIRECT_URI"
+```
+
+5. **Use Access Token**:
+```bash
+curl https://your-mattermost.com/api/v4/users/me \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+```
+
+## Outgoing OAuth Connections
+
+Securely connect outgoing webhooks and slash commands to OAuth-protected external services.
+
+### Use Cases
+
+- Webhooks to services requiring OAuth (GitHub, GitLab, etc.)
+- Slash commands calling protected APIs
+- Automatic token refresh
+- Centralized credential management
+
+### Configuration
+
+1. System admin enables outgoing OAuth connections
+2. Configure OAuth connection with:
+   - Client ID and Secret
+   - Authorization and Token URLs
+   - Scopes required
+   - Audience/Resource URL patterns
+3. Webhooks/commands automatically use connection when calling matching URLs
+
+<Note>
+Outgoing OAuth connections require system administrator configuration and are available in specific Mattermost editions.
+</Note>
+
+## Bot Accounts
+
+Create dedicated bot accounts for integrations:
+
+- Cannot log in via UI (token-only access)
+- Identified with BOT badge
+- Don't count against user licenses
+- Perfect for webhooks and automation
+- Can be assigned to specific integrations
+
+### Creating a Bot Account
+
+1. Navigate to **Integrations** → **Bot Accounts**
+2. Click **Add Bot Account**
+3. Configure:
+   - **Username**: Bot username
+   - **Display Name**: Friendly name
+   - **Description**: Bot purpose
+   - **Icon**: Bot avatar
+   - **Role**: Bot permissions
+
+4. Receive access token for API calls
+
+```bash
+# Use bot token for API requests
+curl -H "Authorization: Bearer bot-access-token" \
+  https://your-mattermost.com/api/v4/posts
+```
+
+## Interactive Messages
+
+Create messages with buttons and menus that trigger actions:
+
+```json
+{
+  "attachments": [
+    {
+      "text": "Approve deployment to production?",
+      "actions": [
+        {
+          "name": "Approve",
+          "integration": {
+            "url": "https://your-app.com/approve",
+            "context": {
+              "deployment_id": "12345"
+            }
+          }
+        },
+        {
+          "name": "Reject",
+          "style": "danger",
+          "integration": {
+            "url": "https://your-app.com/reject",
+            "context": {
+              "deployment_id": "12345"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+When user clicks button, Mattermost POSTs to the integration URL with context.
+
+## Message Menus
+
+Add dropdown menus to messages:
+
+```json
+{
+  "attachments": [
+    {
+      "text": "Select environment:",
+      "actions": [
+        {
+          "name": "Select environment",
+          "integration": {
+            "url": "https://your-app.com/select"
+          },
+          "type": "select",
+          "options": [
+            {"text": "Development", "value": "dev"},
+            {"text": "Staging", "value": "staging"},
+            {"text": "Production", "value": "prod"}
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Dialog Boxes
+
+Open interactive forms for complex user input:
+
+```json
+{
+  "trigger_id": "trigger-id-from-slash-command",
+  "url": "https://your-app.com/submit",
+  "dialog": {
+    "title": "Create Deployment",
+    "introduction_text": "Deploy to selected environment",
+    "elements": [
+      {
+        "display_name": "Environment",
+        "name": "environment",
+        "type": "select",
+        "options": [
+          {"text": "Staging", "value": "staging"},
+          {"text": "Production", "value": "prod"}
+        ]
+      },
+      {
+        "display_name": "Version",
+        "name": "version",
+        "type": "text",
+        "placeholder": "e.g., v1.2.3"
+      }
+    ],
+    "submit_label": "Deploy"
+  }
+}
+```
+
+<Warning>
+Dialogs must be opened within 3 seconds of receiving a trigger_id from a slash command or interactive message.
+</Warning>
+
+## Integration Best Practices
+
+### Security
+
+1. **Validate webhook tokens** - Always verify incoming requests
+2. **Use HTTPS** - Encrypt data in transit
+3. **Store secrets securely** - Never commit tokens to version control
+4. **Limit permissions** - Use least privilege principle
+5. **Rotate tokens regularly** - Update integration credentials periodically
+
+### Performance
+
+1. **Respond quickly** - Webhooks timeout after 30 seconds
+2. **Use async processing** - Return 200 OK immediately, process later
+3. **Implement retries** - Handle temporary failures gracefully
+4. **Rate limiting** - Respect API rate limits
+5. **Batch operations** - Combine multiple updates when possible
+
+### User Experience
+
+1. **Clear error messages** - Help users understand what went wrong
+2. **Consistent formatting** - Use similar styles across integrations
+3. **Helpful usernames** - Make bot identity clear
+4. **Rich attachments** - Use colors and formatting effectively
+5. **Ephemeral responses** - Don't spam channels with errors
+
+## Marketplace
+
+Discover pre-built integrations in the Mattermost Marketplace:
+
+- **GitHub** - Repository notifications and actions
+- **GitLab** - Merge requests and pipeline updates
+- **Jira** - Issue tracking and updates
+- **Jenkins** - Build notifications and triggers
+- **Zoom** - Video meeting integration
+- **And 700+ more integrations**
+
+Browse integrations at [https://mattermost.com/marketplace/](https://mattermost.com/marketplace/)
+
+## Related Features
+
+- [Plugins](/features/plugins) - Extend Mattermost with custom functionality
+- [Workflows](/features/workflows) - Automate processes within Mattermost
+- [Messaging](/features/messaging) - Core communication features
+- [Channels](/features/channels) - Integration destinations

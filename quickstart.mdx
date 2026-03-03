@@ -1,80 +1,377 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quickstart Guide'
+description: 'Get your first Mattermost instance running and send your first message'
 ---
 
-## Get started in three steps
+# Quickstart Guide
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+Get up and running with Mattermost in just a few minutes. This guide will help you deploy a Mattermost instance and send your first message.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  This quickstart is designed for testing and development. For production deployments, see the [Installation Guide](/installation).
 </Note>
+
+## Choose Your Path
+
+<CardGroup cols={2}>
+  <Card title="Mattermost Cloud" icon="cloud">
+    **Fastest Option**: Managed hosting with zero infrastructure setup
+  </Card>
+  <Card title="Self-Hosted (Docker)" icon="docker">
+    **Developer-Friendly**: Run locally or on your own server
+  </Card>
+</CardGroup>
+
+---
+
+## Option 1: Mattermost Cloud (Fastest)
+
+Get started in under 2 minutes with our fully managed cloud service.
+
+<Steps>
+  <Step title="Sign Up">
+    Visit [mattermost.com/sign-up](https://mattermost.com/sign-up/) and create your account.
+    
+    - Enter your work email
+    - Choose your workspace name
+    - Set your password
+  </Step>
+  
+  <Step title="Create Your Team">
+    After signing in, you'll be prompted to:
+    
+    - Name your first team (e.g., "Engineering", "Marketing")
+    - Invite team members via email (optional)
+    - Select your team icon and display name
+  </Step>
+  
+  <Step title="Create Your First Channel">
+    Channels organize conversations by topic:
+    
+    1. Click the **+** icon next to "Channels" in the sidebar
+    2. Choose **Create New Channel**
+    3. Enter a channel name (e.g., "general", "random", "project-alpha")
+    4. Select **Public** or **Private**
+    5. Click **Create Channel**
+    
+    <Tip>
+      Public channels are visible to all team members. Private channels require an invitation.
+    </Tip>
+  </Step>
+  
+  <Step title="Send Your First Message">
+    You're ready to communicate!
+    
+    1. Select your newly created channel
+    2. Type a message in the text box at the bottom
+    3. Press **Enter** to send
+    
+    Try these features:
+    - **@mention** team members with `@username`
+    - Format text with **markdown** 
+    - Add emoji reactions by hovering over messages
+    - Start a thread by clicking the reply icon
+  </Step>
+  
+  <Step title="Download Mobile and Desktop Apps (Optional)">
+    Stay connected on all devices:
+    
+    - **iOS**: [Download from App Store](https://mattermost.com/pl/ios-app/)
+    - **Android**: [Download from Google Play](https://mattermost.com/pl/android-app/)
+    - **Desktop**: [Windows, macOS, Linux](https://docs.mattermost.com/install/desktop-app-install.html)
+  </Step>
+</Steps>
+
+---
+
+## Option 2: Self-Hosted with Docker
+
+Run Mattermost locally using Docker for development and testing.
+
+### Prerequisites
+
+- Docker Engine 20.10+ and Docker Compose 2.0+
+- At least 2GB of available RAM
+- Ports 8065 (Mattermost) and 5432 (PostgreSQL) available
+
+<Steps>
+  <Step title="Create Docker Compose Configuration">
+    Create a new directory for your Mattermost installation:
+    
+    ```bash
+    mkdir mattermost-docker && cd mattermost-docker
+    ```
+    
+    Create a `docker-compose.yml` file with the following configuration:
+    
+    ```yaml docker-compose.yml
+    services:
+      postgres:
+        image: postgres:14
+        container_name: mattermost-postgres
+        restart: always
+        environment:
+          POSTGRES_USER: mmuser
+          POSTGRES_PASSWORD: mmuser_password
+          POSTGRES_DB: mattermost
+          POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+        volumes:
+          - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+          test: ["CMD", "pg_isready", "-h", "localhost"]
+          interval: 5s
+          timeout: 10s
+          retries: 3
+
+      mattermost:
+        image: mattermost/mattermost-enterprise-edition:latest
+        container_name: mattermost
+        restart: always
+        depends_on:
+          postgres:
+            condition: service_healthy
+        environment:
+          # Database Configuration
+          MM_SQLSETTINGS_DRIVERNAME: postgres
+          MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:mmuser_password@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
+          
+          # Server Configuration
+          MM_SERVICESETTINGS_SITEURL: http://localhost:8065
+          MM_SERVICESETTINGS_ENABLELOCALMODE: "true"
+        ports:
+          - "8065:8065"
+        volumes:
+          - mattermost_config:/mattermost/config
+          - mattermost_data:/mattermost/data
+          - mattermost_logs:/mattermost/logs
+          - mattermost_plugins:/mattermost/plugins
+        healthcheck:
+          test: ["CMD", "/mattermost/bin/mmctl", "system", "status", "--local"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+
+    volumes:
+      postgres_data:
+      mattermost_config:
+      mattermost_data:
+      mattermost_logs:
+      mattermost_plugins:
+    ```
+    
+    <Note>
+      This configuration is based on the Mattermost server's production Docker setup. For development, you can find additional compose files in `server/docker-compose.yaml` that include services like MinIO (S3-compatible storage), Redis, and Elasticsearch.
+    </Note>
+  </Step>
+  
+  <Step title="Start Mattermost">
+    Launch all services with Docker Compose:
+    
+    ```bash
+    docker compose up -d
+    ```
+    
+    This command will:
+    - Download the PostgreSQL 14 and Mattermost images
+    - Create the database with user `mmuser` and database `mattermost`
+    - Start Mattermost on port 8065
+    - Create persistent volumes for data storage
+    
+    <Tip>
+      Watch the logs to monitor startup: `docker compose logs -f mattermost`
+    </Tip>
+  </Step>
+  
+  <Step title="Access Mattermost">
+    Open your browser and navigate to:
+    
+    ```
+    http://localhost:8065
+    ```
+    
+    You should see the Mattermost setup wizard.
+  </Step>
+  
+  <Step title="Create Administrator Account">
+    On first launch, you'll create the System Administrator account:
+    
+    1. Enter your email address
+    2. Choose a username
+    3. Set a strong password (minimum 8 characters)
+    4. Click **Create Account**
+    
+    <Warning>
+      Save these credentials securely - this account has full administrative privileges.
+    </Warning>
+  </Step>
+  
+  <Step title="Create Your First Team">
+    After account creation:
+    
+    1. Click **Create a new team**
+    2. Enter a team name (e.g., "developers")
+    3. Choose a team URL (e.g., `localhost:8065/developers`)
+    4. Click **Finish**
+  </Step>
+  
+  <Step title="Create a Channel and Send Messages">
+    You'll automatically be in the "Town Square" channel (created by default).
+    
+    **Create a new channel:**
+    
+    1. Click the **+** icon next to "Channels"
+    2. Select **Create New Channel**
+    3. Enter a name (e.g., "general")
+    4. Add a purpose/description (optional)
+    5. Choose Public or Private
+    6. Click **Create Channel**
+    
+    **Send your first message:**
+    
+    ```
+    Hello, Mattermost! 👋
+    ```
+    
+    **Try advanced features:**
+    
+    - **Code blocks**: Use triple backticks for code
+    ```go
+    func main() {
+        fmt.Println("Hello from Mattermost!")
+    }
+    ```
+    
+    - **Mentions**: Use `@username` to notify users
+    - **Slash commands**: Type `/help` to see available commands
+    - **File uploads**: Drag and drop files into the message box
+  </Step>
+  
+  <Step title="Invite Team Members (Optional)">
+    **Main Menu** → **Invite People**
+    
+    Options:
+    - Send email invitations
+    - Share team invite link
+    - Use LDAP/SAML for enterprise auth (requires configuration)
+  </Step>
+</Steps>
+
+### Managing Your Docker Instance
+
+**Stop Mattermost:**
+```bash
+docker compose stop
+```
+
+**Restart Mattermost:**
+```bash
+docker compose restart
+```
+
+**View logs:**
+```bash
+docker compose logs -f mattermost
+```
+
+**Access Mattermost CLI (mmctl):**
+```bash
+docker exec -it mattermost /mattermost/bin/mmctl --local
+```
+
+**Remove everything (including data):**
+```bash
+docker compose down -v
+```
+
+<Warning>
+  The `-v` flag removes volumes, which **permanently deletes all data**.
+</Warning>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Configure Mattermost" icon="sliders">
+    **System Console** → **Settings**
+    
+    - Email notifications
+    - File storage (S3, MinIO)
+    - Authentication (LDAP, SAML, OAuth)
+    - Plugins and integrations
+  </Card>
+  
+  <Card title="Install Plugins" icon="puzzle-piece">
+    **System Console** → **Plugins** → **Plugin Marketplace**
+    
+    Popular plugins:
+    - GitHub
+    - Jira
+    - Zoom
+    - GitLab
+  </Card>
+  
+  <Card title="Production Deployment" icon="server" href="/installation">
+    Learn about:
+    - High availability clustering
+    - SSL/TLS configuration
+    - Database optimization
+    - Backup strategies
+  </Card>
+  
+  <Card title="API & Integrations" icon="code" href="https://api.mattermost.com">
+    Build custom integrations:
+    - REST API
+    - WebSocket API
+    - Webhooks
+    - Slash commands
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Mattermost won't start">
+    **Check logs:**
+    ```bash
+    docker compose logs mattermost
+    ```
+    
+    **Common issues:**
+    - Port 8065 already in use: Change the port mapping in `docker-compose.yml`
+    - Database connection failed: Ensure PostgreSQL is healthy with `docker compose ps`
+    - Permission issues: Check volume permissions
+  </Accordion>
+  
+  <Accordion title="Can't connect to http://localhost:8065">
+    - Verify Mattermost is running: `docker compose ps`
+    - Check if port 8065 is accessible: `curl http://localhost:8065`
+    - Ensure no firewall is blocking the port
+    - If using a VM, ensure port forwarding is configured
+  </Accordion>
+  
+  <Accordion title="Forgot admin password">
+    Reset using mmctl:
+    ```bash
+    docker exec -it mattermost /mattermost/bin/mmctl --local user reset-password admin@example.com
+    ```
+  </Accordion>
+  
+  <Accordion title="Database connection errors">
+    The connection string format is:
+    ```
+    postgres://mmuser:mmuser_password@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
+    ```
+    
+    - Verify credentials match in both containers
+    - Ensure PostgreSQL is healthy
+    - Check network connectivity between containers
+  </Accordion>
+</AccordionGroup>
+
+## Additional Resources
+
+- [Mattermost Documentation](https://docs.mattermost.com)
+- [Docker Deployment Guide](https://docs.mattermost.com/install/install-docker.html)
+- [Configuration Settings](https://docs.mattermost.com/configure/configuration-settings.html)
+- [Community Support](https://community.mattermost.com)

@@ -1,0 +1,351 @@
+---
+title: Channels
+description: Organize conversations by topic with public, private, and direct channels
+---
+
+Channels are the foundation of organization in Mattermost. They provide dedicated spaces for teams to communicate about specific topics, projects, or initiatives.
+
+## Channel Types
+
+Mattermost supports four distinct channel types, each serving different communication needs:
+
+<CardGroup cols={2}>
+  <Card title="Public Channels" icon="users">
+    Open to all team members. Anyone can discover and join.
+  </Card>
+  
+  <Card title="Private Channels" icon="lock">
+    Invitation-only channels for sensitive or focused discussions.
+  </Card>
+  
+  <Card title="Direct Messages" icon="message">
+    One-on-one conversations between two users.
+  </Card>
+  
+  <Card title="Group Messages" icon="user-group">
+    Private conversations with 3-8 participants.
+  </Card>
+</CardGroup>
+
+### Public Channels
+
+**Identifier**: `O` (Open)
+
+Public channels are visible to all team members and can be joined without an invitation:
+- Discoverable via channel browser
+- Searchable by all team members
+- Ideal for company-wide announcements, general discussion, and team collaboration
+- Maximum channels per team is configurable (default varies by installation)
+
+**Default Channels**:
+- **Town Square** - Default channel for all team members, perfect for general announcements
+- **Off-Topic** - Casual conversations and non-work discussions
+
+<Note>
+Administrators can configure custom default channels that all users automatically join when added to a team.
+</Note>
+
+### Private Channels
+
+**Identifier**: `P` (Private)
+
+Private channels restrict access to invited members only:
+- Not visible in channel browser to non-members
+- Require invitation or admin addition to join
+- Perfect for confidential projects, sensitive discussions, or focused teams
+- Can be converted to public channels (with proper permissions)
+- Support group constraints for synchronized membership
+
+```go
+// Channel type constants from source
+const (
+    ChannelTypeOpen    ChannelType = "O"  // Public
+    ChannelTypePrivate ChannelType = "P"  // Private
+    ChannelTypeDirect  ChannelType = "D"  // Direct Message
+    ChannelTypeGroup   ChannelType = "G"  // Group Message
+)
+```
+
+### Direct Messages (DMs)
+
+**Identifier**: `D` (Direct)
+
+One-on-one conversations between two users:
+- Automatically created when messaging another user
+- Private to the two participants
+- Cannot be converted to other channel types
+- Support all messaging features (files, reactions, threads)
+- Cross-team - can DM any user in your organization
+
+### Group Messages (GMs)
+
+**Identifier**: `G` (Group)
+
+Private conversations with multiple participants:
+- Support 3-8 participants
+- Cannot be discovered or joined - must be created or invited
+- Automatic naming based on participant usernames
+- Can be converted to private channels for enhanced features
+- Perfect for small project teams or working groups
+
+<Tip>
+When a group message needs more structure (categories, bookmarks, etc.), convert it to a private channel.
+</Tip>
+
+## Channel Management
+
+### Creating Channels
+
+Create new channels to organize conversations:
+
+1. Click the **+** icon next to "Channels" in the sidebar
+2. Choose **Create New Channel**
+3. Select Public or Private
+4. Set channel details:
+   - **Name** (1-64 characters, lowercase, no spaces)
+   - **Display Name** (up to 64 characters)
+   - **Purpose** (up to 250 characters)
+   - **Header** (up to 1,024 characters)
+
+**Channel Naming Rules**:
+- 1-64 characters
+- Lowercase letters, numbers, dashes, and underscores
+- Must start with a letter
+- No spaces (use dashes instead)
+
+### Channel Header and Purpose
+
+**Channel Purpose**:
+- Brief description (max 250 characters)
+- Helps users understand the channel's focus
+- Displayed in channel browser
+
+**Channel Header**:
+- Detailed information (max 1,024 characters)
+- Displayed at the top of the channel
+- Supports Markdown formatting
+- Perfect for links, guidelines, or important information
+
+Example header:
+```markdown
+**Project Alpha** - Launch Q2 2024
+📋 [Project Board](https://example.com/board) | 📊 [Metrics](https://example.com/metrics)
+Daily standup at 9am ET | Questions? Ask @projectlead
+```
+
+### Channel Bookmarks
+
+Pin important resources for quick access:
+- Add links to documents, tools, or websites
+- Upload files directly as bookmarks
+- Organize with custom names and emojis
+- Displayed prominently at the top of the channel
+- Reorder bookmarks via drag-and-drop
+
+<Note>
+Channel bookmarks require Mattermost v7.0 or later and appropriate channel permissions.
+</Note>
+
+### Channel Categories
+
+Organize your channels into custom categories:
+- Create unlimited custom categories
+- Drag channels between categories
+- Collapse/expand categories
+- Mute entire categories
+- Default categories: Favorites, Channels, Direct Messages
+
+Example organization:
+```
+⭐ Favorites
+  - #project-alpha
+  - #engineering-team
+
+📁 Projects
+  - #project-alpha
+  - #project-beta
+  - #marketing-campaign
+
+🏢 Departments
+  - #engineering
+  - #marketing
+  - #sales
+```
+
+## Channel Permissions
+
+Control what users can do in channels:
+
+### Member Roles
+
+**Channel Admins**:
+- Manage channel settings
+- Add/remove members
+- Delete channel
+- Manage channel permissions
+
+**Channel Members**:
+- Post messages (if permitted)
+- Read channel history
+- React to messages
+- Use channel features
+
+**Channel Guests**:
+- Limited to specific channels
+- Cannot discover other channels
+- Restricted permissions
+
+### Advanced Permissions
+
+Fine-grained control over channel actions:
+- Who can post messages
+- Who can create threads
+- Who can upload files
+- Who can add reactions
+- Who can manage channel members
+- Who can delete posts
+
+<Tip>
+Use permission schemes to apply consistent permissions across multiple channels.
+</Tip>
+
+## Channel Features
+
+### Channel Browser
+
+Discover and join public channels:
+- Browse all public channels on your team
+- Search by name or purpose
+- See member count and channel activity
+- Filter by archived status
+- Join with a single click
+
+### Channel Notifications
+
+Customize notifications per channel:
+
+**Notification Levels**:
+- **All messages** - Notify for every message
+- **Mentions only** - Only @mentions and keywords
+- **Nothing** - No notifications (still see unread badge)
+
+**Additional Options**:
+- Mute channel completely
+- Ignore @channel and @all mentions
+- Custom notification sound
+- Desktop, mobile, and email preferences
+
+### Muting Channels
+
+Mute channels to reduce noise:
+- Muted channels appear dimmed in sidebar
+- No desktop or mobile notifications
+- Still see unread indicators
+- Perfect for high-traffic channels you want to check periodically
+
+### Favoriting Channels
+
+Pin important channels to the Favorites category:
+- Quick access to key channels
+- Always visible at the top of your sidebar
+- Star icon in channel name
+- Stays favorited across devices
+
+## Channel Sidebar
+
+The channel sidebar provides quick navigation:
+
+**Features**:
+- **Unread indicator** - Bold channel names with unread counts
+- **Mention badge** - Red badge showing mention count
+- **Channel icons** - Visual indicators for channel types
+- **Quick switcher** (Cmd/Ctrl + K) - Jump to any channel
+- **Channel search** - Filter channels by name
+
+**Status Indicators**:
+- **Bold** - Unread messages
+- **Red badge** - Mentions or DMs
+- **Dimmed** - Muted channels
+- **Star** - Favorited channels
+
+## Shared Channels
+
+Collaborate with external organizations:
+- Share specific channels with other Mattermost installations
+- Synchronized messages and files
+- Secure, end-to-end communication
+- Control exactly what is shared
+- Support for public and private shared channels
+
+<Warning>
+Shared channels require configuration by system administrators and appropriate licensing.
+</Warning>
+
+## Channel Archiving
+
+### Archiving Channels
+
+Archive inactive channels to declutter:
+- Archived channels are hidden from sidebar
+- Channel history is preserved and searchable
+- Can be unarchived if needed
+- Links to archived channels still work
+- No new messages can be posted
+
+### Unarchiving Channels
+
+Restore archived channels:
+- Channel Admins or System Admins can unarchive
+- All messages and history are restored
+- Members can post again
+- Channel reappears in sidebar for members
+
+## Channel Limits
+
+**Configuration Limits**:
+- Channel name: 1-64 characters
+- Display name: Up to 64 characters
+- Header: Up to 1,024 characters
+- Purpose: Up to 250 characters
+- Channels per team: Configurable (default varies)
+- Group message participants: 3-8 users
+
+<Note>
+System administrators can adjust these limits based on your organization's needs.
+</Note>
+
+## Best Practices
+
+### Naming Conventions
+
+Establish clear naming patterns:
+```
+#proj-[name]        - Project channels
+#team-[name]        - Team channels  
+#dept-[name]        - Department channels
+#temp-[topic]       - Temporary channels
+#[location]-office  - Location-based channels
+```
+
+### Channel Organization
+
+1. **Use public channels by default** - Increase transparency
+2. **Create focused channels** - One topic per channel
+3. **Archive inactive channels** - Keep sidebar clean
+4. **Set clear headers** - Help users understand the purpose
+5. **Use categories** - Organize related channels together
+6. **Add bookmarks** - Quick access to important resources
+
+### Channel Lifecycle
+
+1. **Creation** - Clear purpose and naming
+2. **Active use** - Regular updates and engagement
+3. **Maintenance** - Update header, add bookmarks
+4. **Archiving** - When purpose is fulfilled or channel inactive
+
+## Related Features
+
+- [Messaging](/features/messaging) - Communication within channels
+- [Teams](/features/teams) - Organize channels by team
+- [Integrations](/features/integrations) - Enhance channels with bots and webhooks
+- [Workflows](/features/workflows) - Automate channel activities

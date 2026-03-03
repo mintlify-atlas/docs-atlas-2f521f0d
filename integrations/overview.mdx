@@ -1,0 +1,211 @@
+---
+title: Integration Options
+description: Overview of ways to integrate with Mattermost
+---
+
+Mattermost provides multiple integration methods to connect with external services and extend functionality. Choose the right integration type based on your use case.
+
+## Integration Methods
+
+<CardGroup cols={2}>
+  <Card title="Incoming Webhooks" icon="webhook" href="/integrations/webhooks">
+    Receive notifications from external services into Mattermost channels
+  </Card>
+  
+  <Card title="Outgoing Webhooks" icon="arrow-up-right-from-square" href="/integrations/webhooks">
+    Send messages from Mattermost to external services based on triggers
+  </Card>
+  
+  <Card title="Slash Commands" icon="terminal" href="/integrations/slash-commands">
+    Create custom commands that users can invoke in messages
+  </Card>
+  
+  <Card title="OAuth 2.0 Apps" icon="key" href="/integrations/oauth">
+    Build applications that authenticate users via Mattermost
+  </Card>
+  
+  <Card title="Plugins" icon="puzzle-piece" href="/integrations/plugins">
+    Extend Mattermost with custom server and web app functionality
+  </Card>
+  
+  <Card title="REST API" icon="code" href="/api/overview">
+    Full programmatic access to Mattermost features
+  </Card>
+</CardGroup>
+
+## Choosing the Right Integration
+
+### Incoming Webhooks
+**Best for:** Sending notifications from external services to Mattermost
+
+**Examples:**
+- CI/CD pipeline notifications (Jenkins, GitHub Actions)
+- Monitoring alerts (Prometheus, Datadog)
+- Issue tracking updates (Jira, GitHub)
+
+**Pros:**
+- Simple to set up (just a URL)
+- No authentication required
+- Supports rich formatting
+
+**Cons:**
+- One-way communication only
+- Limited to posting messages
+
+### Outgoing Webhooks
+**Best for:** Triggering external actions based on Mattermost messages
+
+**Examples:**
+- ChatOps commands
+- Simple bot interactions
+- Message processing pipelines
+
+**Pros:**
+- Trigger-based activation
+- Can respond with messages
+- Easy to implement
+
+**Cons:**
+- Only works in public channels
+- Limited trigger patterns
+- Cannot access Mattermost API
+
+### Slash Commands
+**Best for:** User-invoked actions and commands
+
+**Examples:**
+- `/giphy search cats` - Search and post GIFs
+- `/poll "What's for lunch?"` - Create polls
+- `/deploy production` - Trigger deployments
+
+**Pros:**
+- User-friendly command syntax
+- Can return rich responses
+- Supports autocomplete
+
+**Cons:**
+- Manual invocation required
+- Cannot listen to messages
+
+### OAuth 2.0 Apps
+**Best for:** Third-party applications that need user authentication
+
+**Examples:**
+- Mobile apps using Mattermost login
+- Desktop integrations
+- Web applications with SSO
+
+**Pros:**
+- Secure user authentication
+- Standard OAuth 2.0 flow
+- User consent-based
+
+**Cons:**
+- More complex setup
+- Requires web server for callbacks
+
+### Plugins
+**Best for:** Deep integration with Mattermost functionality
+
+**Examples:**
+- Video conferencing (Calls plugin)
+- Project management (Jira, GitHub plugins)
+- Custom workflows and automation
+
+**Pros:**
+- Full access to Mattermost API
+- Can modify UI and behavior
+- Server and client-side logic
+- Event hooks and listeners
+
+**Cons:**
+- More complex development
+- Requires Go and/or React knowledge
+- Must be installed by admin
+
+### REST API
+**Best for:** Custom applications and automation
+
+**Examples:**
+- User provisioning scripts
+- Custom reporting dashboards
+- Migration tools
+
+**Pros:**
+- Complete programmatic access
+- Language-agnostic
+- Full CRUD operations
+
+**Cons:**
+- Requires authentication
+- More development effort
+
+## Integration Comparison
+
+| Feature | Webhooks | Slash Commands | OAuth Apps | Plugins | REST API |
+|---------|----------|----------------|------------|---------|----------|
+| **Setup Complexity** | Low | Low | Medium | High | Medium |
+| **Authentication** | Token | Token | OAuth 2.0 | Built-in | Token/Session |
+| **Post Messages** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Read Messages** | ❌ (outgoing only) | ❌ | ✅ | ✅ | ✅ |
+| **UI Customization** | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Event Hooks** | Limited | ❌ | ❌ | ✅ | ❌ |
+| **Data Storage** | External | External | External | Built-in KV | External |
+| **Deployment** | External | External | External | Server-side | External |
+
+## Getting Started
+
+<Steps>
+  <Step title="Identify your use case">
+    Determine what you want to integrate and how users will interact with it
+  </Step>
+  
+  <Step title="Choose integration type">
+    Select the integration method that best fits your requirements
+  </Step>
+  
+  <Step title="Review documentation">
+    Read the specific guide for your chosen integration type
+  </Step>
+  
+  <Step title="Test in development">
+    Create a test integration in a development environment
+  </Step>
+  
+  <Step title="Deploy to production">
+    Roll out your integration to production after testing
+  </Step>
+</Steps>
+
+## Security Best Practices
+
+<Warning>
+  Always follow security best practices when building integrations:
+  
+  - **Use HTTPS**: All webhook URLs must use HTTPS in production
+  - **Validate tokens**: Always verify webhook tokens to prevent spoofing
+  - **Limit permissions**: Request only the permissions your integration needs
+  - **Secure secrets**: Never expose tokens or secrets in client-side code
+  - **Rate limiting**: Implement rate limiting to prevent abuse
+  - **Input validation**: Sanitize all user input to prevent injection attacks
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Incoming Webhooks" icon="webhook" href="/integrations/webhooks">
+    Start with the simplest integration method
+  </Card>
+  
+  <Card title="Plugin Development" icon="puzzle-piece" href="/dev/plugins/overview">
+    Build powerful custom functionality
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Explore the full Mattermost API
+  </Card>
+  
+  <Card title="Examples" icon="book" href="https://github.com/mattermost/mattermost-plugin-starter-template">
+    View integration examples on GitHub
+  </Card>
+</CardGroup>

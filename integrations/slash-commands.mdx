@@ -1,0 +1,606 @@
+---
+title: Slash Commands
+description: Create custom slash commands for user-invoked actions
+---
+
+Slash commands provide an easy way for users to trigger actions within Mattermost. Users type commands starting with `/` to perform tasks, query information, or interact with integrations.
+
+## Built-in Slash Commands
+
+Mattermost includes several built-in slash commands:
+
+- `/away` - Set status to away
+- `/online` - Set status to online
+- `/offline` - Set status to offline
+- `/dnd` - Set status to do not disturb
+- `/code` - Display text as code
+- `/collapse` - Collapse all images and link previews
+- `/expand` - Expand all images and link previews
+- `/join` - Join a channel
+- `/leave` - Leave a channel
+- `/mute` - Mute a channel
+- `/rename` - Rename a channel
+- `/header` - Edit channel header
+- `/purpose` - Edit channel purpose
+- `/invite` - Invite user to channel
+- `/kick` - Remove user from channel
+
+## Creating Custom Slash Commands
+
+<Steps>
+  <Step title="Navigate to integrations">
+    Go to **Main Menu** > **Integrations** > **Slash Commands**
+  </Step>
+  
+  <Step title="Add command">
+    Click **Add Slash Command**
+  </Step>
+  
+  <Step title="Configure command">
+    - **Title**: Display name for the command
+    - **Description**: What the command does
+    - **Command Trigger Word**: The command users will type (without `/`)
+    - **Request URL**: Endpoint to send command data
+    - **Request Method**: GET or POST
+    - **Response Username**: Bot name for responses
+    - **Response Icon**: URL to bot avatar
+    - **Autocomplete**: Enable command suggestions
+  </Step>
+  
+  <Step title="Save and note token">
+    Save the command and note the token for verification
+  </Step>
+</Steps>
+
+## Command Request Format
+
+When a user executes your slash command, Mattermost sends a request to your endpoint:
+
+### POST Request Body
+
+```json
+{
+  "token": "xxx-command-token-xxx",
+  "team_id": "abc123",
+  "team_domain": "myteam",
+  "channel_id": "def456",
+  "channel_name": "town-square",
+  "user_id": "ghi789",
+  "user_name": "john.doe",
+  "command": "/weather",
+  "text": "Seattle",
+  "trigger_id": "xyz.abc123def456",
+  "response_url": "https://your-mattermost-server.com/hooks/commands/abc123"
+}
+```
+
+### GET Request Parameters
+
+```
+token=xxx-command-token-xxx&
+team_id=abc123&
+team_domain=myteam&
+channel_id=def456&
+channel_name=town-square&
+user_id=ghi789&
+user_name=john.doe&
+command=/weather&
+text=Seattle&
+trigger_id=xyz.abc123def456&
+response_url=https://your-mattermost-server.com/hooks/commands/abc123
+```
+
+## Responding to Commands
+
+### Immediate Response
+
+Return JSON in the HTTP response (must respond within 3 seconds):
+
+<Tabs>
+  <Tab title="Python (Flask)">
+    ```python
+    from flask import Flask, request, jsonify
+
+    app = Flask(__name__)
+    COMMAND_TOKEN = 'xxx-command-token-xxx'
+
+    @app.route('/weather', methods=['POST'])
+    def weather_command():
+        data = request.form if request.form else request.json
+        
+        # Verify token
+        if data.get('token') != COMMAND_TOKEN:
+            return 'Invalid token', 403
+        
+        # Get command parameters
+        city = data.get('text', 'Seattle')
+        user_name = data.get('user_name')
+        
+        # Process command
+        weather_data = get_weather(city)
+        
+        # Return response
+        return jsonify({
+            'response_type': 'in_channel',
+            'text': f'Weather for {city}',
+            'attachments': [{
+                'color': '#0058CC',
+                'fields': [
+                    {'title': 'Temperature', 'value': f"{weather_data['temp']}°F", 'short': True},
+                    {'title': 'Conditions', 'value': weather_data['conditions'], 'short': True}
+                ]
+            }]
+        })
+
+    def get_weather(city):
+        # Your weather API logic
+        return {'temp': 72, 'conditions': 'Sunny'}
+
+    if __name__ == '__main__':
+        app.run(port=5000)
+    ```
+  </Tab>
+  
+  <Tab title="Node.js (Express)">
+    ```javascript
+    const express = require('express');
+    const app = express();
+
+    const COMMAND_TOKEN = 'xxx-command-token-xxx';
+
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
+
+    app.post('/weather', async (req, res) => {
+      const { token, text, user_name } = req.body;
+      
+      // Verify token
+      if (token !== COMMAND_TOKEN) {
+        return res.status(403).send('Invalid token');
+      }
+      
+      // Get weather data
+      const city = text || 'Seattle';
+      const weatherData = await getWeather(city);
+      
+      // Send response
+      res.json({
+        response_type: 'in_channel',
+        text: `Weather for ${city}`,
+        attachments: [{
+          color: '#0058CC',
+          fields: [
+            { title: 'Temperature', value: `${weatherData.temp}°F`, short: true },
+            { title: 'Conditions', value: weatherData.conditions, short: true }
+          ]
+        }]
+      });
+    });
+
+    async function getWeather(city) {
+      // Your weather API logic
+      return { temp: 72, conditions: 'Sunny' };
+    }
+
+    app.listen(5000, () => {
+      console.log('Slash command server running on port 5000');
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Go">
+    ```go
+    package main
+
+    import (
+        "encoding/json"
+        "net/http"
+    )
+
+    const CommandToken = "xxx-command-token-xxx"
+
+    type CommandRequest struct {
+        Token       string `json:"token"`
+        TeamID      string `json:"team_id"`
+        ChannelID   string `json:"channel_id"`
+        UserID      string `json:"user_id"`
+        UserName    string `json:"user_name"`
+        Command     string `json:"command"`
+        Text        string `json:"text"`
+        TriggerID   string `json:"trigger_id"`
+        ResponseURL string `json:"response_url"`
+    }
+
+    type CommandResponse struct {
+        ResponseType string       `json:"response_type"`
+        Text         string       `json:"text"`
+        Attachments  []Attachment `json:"attachments,omitempty"`
+    }
+
+    type Attachment struct {
+        Color  string  `json:"color"`
+        Fields []Field `json:"fields"`
+    }
+
+    type Field struct {
+        Title string `json:"title"`
+        Value string `json:"value"`
+        Short bool   `json:"short"`
+    }
+
+    func weatherHandler(w http.ResponseWriter, r *http.Request) {
+        var req CommandRequest
+        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+            http.Error(w, err.Error(), http.StatusBadRequest)
+            return
+        }
+
+        // Verify token
+        if req.Token != CommandToken {
+            http.Error(w, "Invalid token", http.StatusForbidden)
+            return
+        }
+
+        // Process command
+        city := req.Text
+        if city == "" {
+            city = "Seattle"
+        }
+
+        // Create response
+        resp := CommandResponse{
+            ResponseType: "in_channel",
+            Text:         "Weather for " + city,
+            Attachments: []Attachment{{
+                Color: "#0058CC",
+                Fields: []Field{
+                    {Title: "Temperature", Value: "72°F", Short: true},
+                    {Title: "Conditions", Value: "Sunny", Short: true},
+                },
+            }},
+        }
+
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(resp)
+    }
+
+    func main() {
+        http.HandleFunc("/weather", weatherHandler)
+        http.ListenAndServe(":5000", nil)
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Response Parameters
+
+<ParamField path="response_type" type="string">
+  - `"in_channel"`: Post response visibly in channel (default)
+  - `"ephemeral"`: Show response only to user who ran command
+</ParamField>
+
+<ParamField path="text" type="string">
+  Message text with Markdown support
+</ParamField>
+
+<ParamField path="username" type="string">
+  Override bot username
+</ParamField>
+
+<ParamField path="icon_url" type="string">
+  Override bot avatar
+</ParamField>
+
+<ParamField path="attachments" type="array">
+  Rich message attachments (same format as webhooks)
+</ParamField>
+
+<ParamField path="goto_location" type="string">
+  Redirect user to a different channel (format: `/team/channel`)
+</ParamField>
+
+<ParamField path="skip_slack_parsing" type="boolean">
+  Disable Slack-compatible parsing
+</ParamField>
+
+### Delayed Response
+
+For long-running operations, use the `response_url` for delayed responses:
+
+```python
+import requests
+import threading
+
+def async_process(response_url, city):
+    # Long-running operation
+    weather_data = fetch_weather_from_api(city)
+    
+    # Send delayed response
+    payload = {
+        'response_type': 'in_channel',
+        'text': f'Weather update for {city}: {weather_data}'
+    }
+    requests.post(response_url, json=payload)
+
+@app.route('/weather', methods=['POST'])
+def weather_command():
+    data = request.json
+    response_url = data.get('response_url')
+    city = data.get('text')
+    
+    # Start async processing
+    thread = threading.Thread(target=async_process, args=(response_url, city))
+    thread.start()
+    
+    # Return immediate acknowledgment
+    return jsonify({
+        'response_type': 'ephemeral',
+        'text': f'Fetching weather for {city}...'
+    })
+```
+
+<Note>
+  The `response_url` can be used up to **5 times** within **30 minutes** of command execution.
+</Note>
+
+## Autocomplete
+
+Enable command autocomplete to provide users with suggestions:
+
+### Static Autocomplete
+
+Configure in the Mattermost UI:
+- **Autocomplete Hint**: Example text (e.g., `[city]`)
+- **Autocomplete Description**: What the command does
+
+### Dynamic Autocomplete
+
+Implement the `/api/v4/commands/autocomplete` endpoint to provide dynamic suggestions based on user input.
+
+## Advanced Examples
+
+### Multi-action Command
+
+```python
+@app.route('/project', methods=['POST'])
+def project_command():
+    data = request.json
+    text = data.get('text', '').strip()
+    parts = text.split()
+    
+    if not parts:
+        return jsonify({
+            'response_type': 'ephemeral',
+            'text': 'Usage: `/project [create|list|status] [name]`'
+        })
+    
+    action = parts[0]
+    
+    if action == 'create':
+        project_name = ' '.join(parts[1:])
+        return create_project(project_name)
+    
+    elif action == 'list':
+        return list_projects()
+    
+    elif action == 'status':
+        project_name = ' '.join(parts[1:])
+        return project_status(project_name)
+    
+    else:
+        return jsonify({
+            'response_type': 'ephemeral',
+            'text': f'Unknown action: {action}'
+        })
+
+def create_project(name):
+    # Create project logic
+    return jsonify({
+        'response_type': 'in_channel',
+        'text': f'Created project: **{name}**'
+    })
+
+def list_projects():
+    projects = get_projects_from_db()
+    text = '### Projects\n\n' + '\n'.join(f'- {p}' for p in projects)
+    return jsonify({
+        'response_type': 'ephemeral',
+        'text': text
+    })
+```
+
+### Interactive Command with Buttons
+
+```python
+@app.route('/deploy', methods=['POST'])
+def deploy_command():
+    data = request.json
+    trigger_id = data.get('trigger_id')
+    
+    # Return message with action buttons
+    return jsonify({
+        'response_type': 'ephemeral',
+        'text': 'Select deployment environment:',
+        'attachments': [{
+            'text': '',
+            'actions': [
+                {
+                    'name': 'Deploy',
+                    'integration': {
+                        'url': 'https://your-server.com/deploy/staging',
+                        'context': {'env': 'staging'}
+                    },
+                    'type': 'button',
+                    'style': 'default'
+                },
+                {
+                    'name': 'Deploy to Production',
+                    'integration': {
+                        'url': 'https://your-server.com/deploy/production',
+                        'context': {'env': 'production'}
+                    },
+                    'type': 'button',
+                    'style': 'danger'
+                }
+            ]
+        }]
+    })
+```
+
+### Command with Dialog
+
+```python
+import requests
+
+@app.route('/issue', methods=['POST'])
+def issue_command():
+    data = request.json
+    trigger_id = data.get('trigger_id')
+    
+    # Open dialog for issue creation
+    dialog = {
+        'trigger_id': trigger_id,
+        'url': 'https://your-server.com/submit-issue',
+        'dialog': {
+            'callback_id': 'create_issue',
+            'title': 'Create Issue',
+            'icon_url': 'https://example.com/icon.png',
+            'elements': [
+                {
+                    'display_name': 'Title',
+                    'name': 'title',
+                    'type': 'text',
+                    'subtype': 'text',
+                    'max_length': 100
+                },
+                {
+                    'display_name': 'Description',
+                    'name': 'description',
+                    'type': 'textarea',
+                    'optional': True
+                },
+                {
+                    'display_name': 'Priority',
+                    'name': 'priority',
+                    'type': 'select',
+                    'options': [
+                        {'text': 'High', 'value': 'high'},
+                        {'text': 'Medium', 'value': 'medium'},
+                        {'text': 'Low', 'value': 'low'}
+                    ]
+                }
+            ],
+            'submit_label': 'Create',
+            'notify_on_cancel': False
+        }
+    }
+    
+    # Open dialog via API
+    response = requests.post(
+        f"{MATTERMOST_URL}/api/v4/actions/dialogs/open",
+        headers={'Authorization': f'Bearer {BOT_TOKEN}'},
+        json=dialog
+    )
+    
+    return '', 200
+```
+
+## Best Practices
+
+### Validation
+
+<Warning>
+  Always validate the command token to prevent unauthorized access
+</Warning>
+
+```python
+def verify_command_token(token):
+    if token != COMMAND_TOKEN:
+        raise ValueError('Invalid command token')
+```
+
+### User Experience
+
+<Tip>
+  Provide helpful error messages and usage hints
+</Tip>
+
+```python
+if not text:
+    return jsonify({
+        'response_type': 'ephemeral',
+        'text': '**Usage:** `/weather [city]`\n\nExample: `/weather Seattle`'
+    })
+```
+
+### Performance
+
+```python
+# Use ephemeral responses for immediate feedback
+# Use delayed responses for long operations
+
+@app.route('/command', methods=['POST'])
+def command():
+    # Immediate acknowledgment
+    threading.Thread(target=async_work, args=(data,)).start()
+    
+    return jsonify({
+        'response_type': 'ephemeral',
+        'text': 'Processing...'
+    })
+```
+
+### Error Handling
+
+```python
+try:
+    result = process_command(data)
+    return jsonify(result)
+except Exception as e:
+    return jsonify({
+        'response_type': 'ephemeral',
+        'text': f'❌ Error: {str(e)}'
+    }), 200  # Return 200 to show error to user
+```
+
+## Troubleshooting
+
+<Accordion title="Command not appearing in autocomplete">
+  - Enable autocomplete in command settings
+  - Verify command is not disabled
+  - Check user has permission to use slash commands
+</Accordion>
+
+<Accordion title="Command returns error">
+  - Verify request URL is accessible from Mattermost server
+  - Check token validation
+  - Review server logs for errors
+  - Test endpoint independently with curl
+</Accordion>
+
+<Accordion title="Response not formatting correctly">
+  - Validate JSON structure
+  - Check response_type value
+  - Verify attachment format
+  - Test with simple text response first
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Webhooks" icon="webhook" href="/integrations/webhooks">
+    Learn about incoming and outgoing webhooks
+  </Card>
+  
+  <Card title="Interactive Dialogs" icon="window" href="/api/overview">
+    Create forms and dialogs
+  </Card>
+  
+  <Card title="Message Buttons" icon="hand-pointer" href="/api/overview">
+    Add interactive buttons to messages
+  </Card>
+  
+  <Card title="Plugin Development" icon="puzzle-piece" href="/dev/plugins/overview">
+    Build advanced integrations with plugins
+  </Card>
+</CardGroup>

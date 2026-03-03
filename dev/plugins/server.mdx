@@ -1,0 +1,644 @@
+---
+title: Server-Side Plugin Development
+description: Learn about Go hooks, the Plugin API, and server-side plugin development
+---
+
+Server-side plugins are written in Go and run as separate processes that communicate with the Mattermost server via RPC. They can implement hooks to respond to events and use the Plugin API to interact with the server.
+
+## Plugin Structure
+
+Every server plugin must:
+
+1. Embed `plugin.MattermostPlugin`
+2. Implement desired hooks from the `Hooks` interface
+3. Call `plugin.ClientMain()` in the `main()` function
+
+### Basic Structure
+
+```go
+package main
+
+import (
+    "github.com/mattermost/mattermost/server/public/model"
+    "github.com/mattermost/mattermost/server/public/plugin"
+)
+
+type Plugin struct {
+    plugin.MattermostPlugin
+}
+
+func (p *Plugin) OnActivate() error {
+    p.API.LogInfo("Plugin activated")
+    return nil
+}
+
+func main() {
+    plugin.ClientMain(&Plugin{})
+}
+```
+
+## Plugin API
+
+The Plugin API is available via `p.API` and provides methods to interact with Mattermost.
+
+### Accessing the API
+
+```go
+func (p *Plugin) MessageHasBeenPosted(c *plugin.Context, post *model.Post) {
+    // API is available as p.API
+    user, err := p.API.GetUser(post.UserId)
+    if err != nil {
+        p.API.LogError("Failed to get user", "error", err.Error())
+        return
+    }
+    
+    p.API.LogInfo("User posted", "username", user.Username)
+}
+```
+
+### API Categories
+
+<Tabs>
+  <Tab title="Users">
+    Manage users and their properties:
+
+    ```go
+    // Get user by ID
+    user, err := p.API.GetUser(userID)
+
+    // Get user by email
+    user, err := p.API.GetUserByEmail(email)
+
+    // Get user by username
+    user, err := p.API.GetUserByUsername(username)
+
+    // Create user
+    user := &model.User{
+        Email:    "user@example.com",
+        Username: "newuser",
+        Password: "password123",
+    }
+    created, err := p.API.CreateUser(user)
+
+    // Update user
+    user.FirstName = "John"
+    updated, err := p.API.UpdateUser(user)
+
+    // Get user status
+    status, err := p.API.GetUserStatus(userID)
+
+    // Update user status (online, away, dnd, offline)
+    status, err := p.API.UpdateUserStatus(userID, "away")
+
+    // Search users
+    users, err := p.API.SearchUsers(&model.UserSearch{
+        Term: "john",
+    })
+    ```
+  </Tab>
+
+  <Tab title="Posts">
+    Create and manage posts:
+
+    ```go
+    // Create a post
+    post := &model.Post{
+        UserId:    userID,
+        ChannelId: channelID,
+        Message:   "Hello from plugin!",
+    }
+    created, err := p.API.CreatePost(post)
+
+    // Create post with attachments
+    post := &model.Post{
+        UserId:    userID,
+        ChannelId: channelID,
+        Message:   "Check this out",
+        FileIds:   []string{fileID},
+    }
+
+    // Send ephemeral post (only visible to one user)
+    ephemeral := p.API.SendEphemeralPost(userID, &model.Post{
+        ChannelId: channelID,
+        Message:   "Private message",
+    })
+
+    // Get a post
+    post, err := p.API.GetPost(postID)
+
+    // Update a post
+    post.Message = "Updated message"
+    updated, err := p.API.UpdatePost(post)
+
+    // Delete a post
+    err := p.API.DeletePost(postID)
+
+    // Get post thread
+    thread, err := p.API.GetPostThread(postID)
+
+    // Add reaction
+    reaction := &model.Reaction{
+        UserId:    userID,
+        PostId:    postID,
+        EmojiName: "thumbsup",
+    }
+    _, err := p.API.AddReaction(reaction)
+    ```
+  </Tab>
+
+  <Tab title="Channels">
+    Manage channels and memberships:
+
+    ```go
+    // Get channel by ID
+    channel, err := p.API.GetChannel(channelID)
+
+    // Get channel by name
+    channel, err := p.API.GetChannelByName(teamID, "town-square", false)
+
+    // Create channel
+    channel := &model.Channel{
+        TeamId:      teamID,
+        Name:        "new-channel",
+        DisplayName: "New Channel",
+        Type:        model.ChannelTypeOpen,
+    }
+    created, err := p.API.CreateChannel(channel)
+
+    // Get direct message channel
+    dmChannel, err := p.API.GetDirectChannel(userID1, userID2)
+
+    // Add user to channel
+    member, err := p.API.AddChannelMember(channelID, userID)
+
+    // Add user to channel (with invite notification)
+    member, err := p.API.AddUserToChannel(channelID, userID, inviterID)
+
+    // Get channel member
+    member, err := p.API.GetChannelMember(channelID, userID)
+
+    // Remove user from channel
+    err := p.API.DeleteChannelMember(channelID, userID)
+
+    // Get channel statistics
+    stats, err := p.API.GetChannelStats(channelID)
+    ```
+  </Tab>
+
+  <Tab title="Teams">
+    Work with teams:
+
+    ```go
+    // Get team by ID
+    team, err := p.API.GetTeam(teamID)
+
+    // Get team by name
+    team, err := p.API.GetTeamByName("myteam")
+
+    // Get all teams
+    teams, err := p.API.GetTeams()
+
+    // Create team
+    team := &model.Team{
+        Name:        "newteam",
+        DisplayName: "New Team",
+        Type:        model.TeamOpen,
+    }
+    created, err := p.API.CreateTeam(team)
+
+    // Add user to team
+    member, err := p.API.CreateTeamMember(teamID, userID)
+
+    // Get team member
+    member, err := p.API.GetTeamMember(teamID, userID)
+
+    // Remove user from team
+    err := p.API.DeleteTeamMember(teamID, userID, requesterID)
+
+    // Get teams for user
+    teams, err := p.API.GetTeamsForUser(userID)
+    ```
+  </Tab>
+
+  <Tab title="Files">
+    Handle file uploads and downloads:
+
+    ```go
+    // Upload file
+    fileInfo, err := p.API.UploadFile(data, channelID, "filename.txt")
+
+    // Get file info
+    info, err := p.API.GetFileInfo(fileID)
+
+    // Get file content
+    data, err := p.API.GetFile(fileID)
+
+    // Get file link
+    link, err := p.API.GetFileLink(fileID)
+
+    // Read file from plugin bundle
+    data, err := p.API.ReadFile("assets/template.txt")
+
+    // Get bundle path
+    bundlePath, err := p.API.GetBundlePath()
+    ```
+  </Tab>
+
+  <Tab title="Key-Value Store">
+    Persist plugin data:
+
+    ```go
+    // Set value
+    err := p.API.KVSet("mykey", []byte("myvalue"))
+
+    // Set with expiry (in seconds)
+    err := p.API.KVSetWithExpiry("session", data, 3600)
+
+    // Get value
+    value, err := p.API.KVGet("mykey")
+
+    // Compare and set (atomic operation)
+    success, err := p.API.KVCompareAndSet("counter", oldValue, newValue)
+
+    // Compare and delete
+    deleted, err := p.API.KVCompareAndDelete("lock", expectedValue)
+
+    // Delete value
+    err := p.API.KVDelete("mykey")
+
+    // List all keys
+    keys, err := p.API.KVList(0, 100)
+
+    // Delete all plugin data
+    err := p.API.KVDeleteAll()
+    ```
+
+    <Warning>
+      Do not use keys with prefix `mmi_` - these are reserved for internal use.
+    </Warning>
+  </Tab>
+</Tabs>
+
+### Configuration and Logging
+
+```go
+// Get server configuration
+config := p.API.GetConfig()
+
+// Get plugin configuration
+pluginConfig := p.API.GetPluginConfig()
+
+// Load plugin settings into struct
+var config MyPluginConfig
+err := p.API.LoadPluginConfiguration(&config)
+
+// Logging
+p.API.LogDebug("Debug message", "key", value)
+p.API.LogInfo("Info message", "key", value)
+p.API.LogWarn("Warning message", "key", value)
+p.API.LogError("Error message", "error", err.Error())
+
+// Get server version
+version := p.API.GetServerVersion()
+
+// Check license
+license := p.API.GetLicense()
+isEnterprise := p.API.IsEnterpriseReady()
+```
+
+## Hooks
+
+Hooks are methods you implement to respond to events in Mattermost.
+
+### Lifecycle Hooks
+
+<ParamField path="OnActivate" type="func() error">
+  Called when the plugin is activated. Use this to:
+  - Register slash commands
+  - Initialize resources
+  - Start background jobs
+  - Validate configuration
+
+  Return an error to prevent activation.
+
+  ```go
+  func (p *Plugin) OnActivate() error {
+      if err := p.API.RegisterCommand(&model.Command{
+          Trigger: "myplugin",
+      }); err != nil {
+          return fmt.Errorf("failed to register command: %w", err)
+      }
+      
+      p.API.LogInfo("Plugin activated successfully")
+      return nil
+  }
+  ```
+</ParamField>
+
+<ParamField path="OnDeactivate" type="func() error">
+  Called when the plugin is deactivated. Clean up:
+  - Stop background workers
+  - Close connections
+  - Release resources
+
+  ```go
+  func (p *Plugin) OnDeactivate() error {
+      p.stopBackgroundJobs()
+      p.API.LogInfo("Plugin deactivated")
+      return nil
+  }
+  ```
+</ParamField>
+
+<ParamField path="OnConfigurationChange" type="func() error">
+  Called when plugin configuration changes. Load new settings:
+
+  ```go
+  func (p *Plugin) OnConfigurationChange() error {
+      var config MyPluginConfig
+      if err := p.API.LoadPluginConfiguration(&config); err != nil {
+          return err
+      }
+      
+      p.setConfiguration(&config)
+      return nil
+  }
+  ```
+</ParamField>
+
+### Message Hooks
+
+<ParamField path="MessageWillBePosted" type="func(*plugin.Context, *model.Post) (*model.Post, string)">
+  Called before a message is saved. You can:
+  - Modify the message
+  - Reject the message
+  - Allow it unchanged
+
+  **Return values:**
+  - `(modifiedPost, "")` - Allow with modifications
+  - `(nil, "")` - Allow unchanged
+  - `(nil, "rejection reason")` - Reject with reason
+  - `(nil, plugin.DismissPostError)` - Silently dismiss
+
+  ```go
+  func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*model.Post, string) {
+      // Block messages with profanity
+      if containsProfanity(post.Message) {
+          return nil, "Message contains inappropriate content"
+      }
+      
+      // Add hashtag to messages
+      post.Message = post.Message + " #fromplugin"
+      return post, ""
+  }
+  ```
+</ParamField>
+
+<ParamField path="MessageHasBeenPosted" type="func(*plugin.Context, *model.Post)">
+  Called after a message is saved. Use for:
+  - Triggering actions based on content
+  - Sending notifications
+  - Logging or analytics
+
+  ```go
+  func (p *Plugin) MessageHasBeenPosted(c *plugin.Context, post *model.Post) {
+      if strings.Contains(post.Message, "@bot") {
+          p.API.CreatePost(&model.Post{
+              ChannelId: post.ChannelId,
+              Message:   "You mentioned me!",
+          })
+      }
+  }
+  ```
+</ParamField>
+
+<ParamField path="MessageWillBeUpdated" type="func(*plugin.Context, *model.Post, *model.Post) (*model.Post, string)">
+  Called before a message is updated.
+
+  ```go
+  func (p *Plugin) MessageWillBeUpdated(c *plugin.Context, newPost, oldPost *model.Post) (*model.Post, string) {
+      // Prevent removing mentions
+      if containsMentions(oldPost.Message) && !containsMentions(newPost.Message) {
+          return nil, "Cannot remove mentions"
+      }
+      return newPost, ""
+  }
+  ```
+</ParamField>
+
+### User Hooks
+
+<ParamField path="UserHasJoinedChannel" type="func(*plugin.Context, *model.ChannelMember, *model.User)">
+  Called when a user joins a channel.
+
+  ```go
+  func (p *Plugin) UserHasJoinedChannel(c *plugin.Context, member *model.ChannelMember, actor *model.User) {
+      user, _ := p.API.GetUser(member.UserId)
+      
+      p.API.CreatePost(&model.Post{
+          ChannelId: member.ChannelId,
+          Message:   fmt.Sprintf("Welcome @%s!", user.Username),
+      })
+  }
+  ```
+</ParamField>
+
+<ParamField path="UserHasLeftChannel" type="func(*plugin.Context, *model.ChannelMember, *model.User)">
+  Called when a user leaves a channel.
+</ParamField>
+
+<ParamField path="UserHasJoinedTeam" type="func(*plugin.Context, *model.TeamMember, *model.User)">
+  Called when a user joins a team.
+</ParamField>
+
+<ParamField path="UserHasBeenCreated" type="func(*plugin.Context, *model.User)">
+  Called after a new user is created.
+</ParamField>
+
+<ParamField path="UserWillLogIn" type="func(*plugin.Context, *model.User) string">
+  Called before login. Return non-empty string to reject.
+
+  ```go
+  func (p *Plugin) UserWillLogIn(c *plugin.Context, user *model.User) string {
+      if user.Email == "blocked@example.com" {
+          return "This account has been suspended"
+      }
+      return ""
+  }
+  ```
+</ParamField>
+
+### HTTP Hook
+
+<ParamField path="ServeHTTP" type="func(*plugin.Context, http.ResponseWriter, *http.Request)">
+  Handle HTTP requests to `/plugins/{plugin-id}/*`
+
+  ```go
+  func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
+      switch r.URL.Path {
+      case "/api/status":
+          p.handleStatus(w, r)
+      case "/api/webhook":
+          p.handleWebhook(w, r)
+      default:
+          http.NotFound(w, r)
+      }
+  }
+
+  func (p *Plugin) handleStatus(w http.ResponseWriter, r *http.Request) {
+      w.Header().Set("Content-Type", "application/json")
+      w.WriteHeader(http.StatusOK)
+      json.NewEncoder(w).Encode(map[string]string{
+          "status": "ok",
+      })
+  }
+  ```
+
+  The `Mattermost-User-Id` header contains the authenticated user ID (if any).
+</ParamField>
+
+### Command Hook
+
+<ParamField path="ExecuteCommand" type="func(*plugin.Context, *model.CommandArgs) (*model.CommandResponse, *model.AppError)">
+  Handle slash command execution.
+
+  ```go
+  func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+      switch args.Command {
+      case "/myplugin help":
+          return &model.CommandResponse{
+              Text: "Available commands: /myplugin status, /myplugin config",
+          }, nil
+          
+      case "/myplugin status":
+          return &model.CommandResponse{
+              ResponseType: model.CommandResponseTypeEphemeral,
+              Text:         "Plugin is running",
+          }, nil
+          
+      default:
+          return &model.CommandResponse{
+              Text: "Unknown command",
+          }, nil
+      }
+  }
+  ```
+</ParamField>
+
+### Other Hooks
+
+<Accordion title="File Hooks">
+  ```go
+  func (p *Plugin) FileWillBeUploaded(c *plugin.Context, info *model.FileInfo, 
+      file io.Reader, output io.Writer) (*model.FileInfo, string) {
+      
+      // Reject certain file types
+      if info.Extension == ".exe" {
+          return nil, "Executable files are not allowed"
+      }
+      
+      // Scan file content
+      // Modify file before upload
+      
+      return info, ""
+  }
+
+  func (p *Plugin) FileWillBeDownloaded(c *plugin.Context, info *model.FileInfo, 
+      userID string, downloadType model.FileDownloadType) string {
+      
+      // Prevent downloads of sensitive files
+      if info.Name == "secret.txt" {
+          return "Access denied"
+      }
+      return ""
+  }
+  ```
+</Accordion>
+
+<Accordion title="Reaction Hooks">
+  ```go
+  func (p *Plugin) ReactionHasBeenAdded(c *plugin.Context, reaction *model.Reaction) {
+      p.API.LogInfo("Reaction added", "emoji", reaction.EmojiName)
+  }
+
+  func (p *Plugin) ReactionHasBeenRemoved(c *plugin.Context, reaction *model.Reaction) {
+      p.API.LogInfo("Reaction removed", "emoji", reaction.EmojiName)
+  }
+  ```
+</Accordion>
+
+<Accordion title="WebSocket Hooks">
+  ```go
+  func (p *Plugin) OnWebSocketConnect(webConnID, userID string) {
+      p.API.LogDebug("User connected", "user", userID)
+  }
+
+  func (p *Plugin) OnWebSocketDisconnect(webConnID, userID string) {
+      p.API.LogDebug("User disconnected", "user", userID)
+  }
+
+  func (p *Plugin) WebSocketMessageHasBeenPosted(webConnID, userID string, 
+      req *model.WebSocketRequest) {
+      // Handle WebSocket messages
+  }
+  ```
+</Accordion>
+
+## Slash Commands
+
+Register custom slash commands users can invoke:
+
+```go
+func (p *Plugin) OnActivate() error {
+    return p.API.RegisterCommand(&model.Command{
+        Trigger:          "myplugin",
+        DisplayName:      "My Plugin Command",
+        Description:      "Execute my plugin command",
+        AutoComplete:     true,
+        AutoCompleteDesc: "Available commands: status, config",
+        AutoCompleteHint: "[status|config]",
+    })
+}
+```
+
+## Publishing WebSocket Events
+
+Send real-time events to connected clients:
+
+```go
+p.API.PublishWebSocketEvent("custom_event", map[string]interface{}{
+    "message": "Hello from plugin",
+    "data":    someData,
+}, &model.WebsocketBroadcast{
+    UserId:    userID,     // Send to specific user
+    ChannelId: channelID,  // Or send to channel
+})
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Always check and handle errors from API calls
+  </Card>
+  <Card title="Logging" icon="file-lines">
+    Use structured logging with key-value pairs
+  </Card>
+  <Card title="Goroutines" icon="diagram-project">
+    Be careful with goroutines - clean up on deactivation
+  </Card>
+  <Card title="Configuration" icon="gear">
+    Reload config on `OnConfigurationChange`
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Web App Development" icon="browser" href="/dev/plugins/webapp">
+    Add UI components to your plugin
+  </Card>
+  <Card title="Best Practices" icon="check" href="/dev/plugins/best-practices">
+    Production-ready plugin patterns
+  </Card>
+</CardGroup>

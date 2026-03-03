@@ -1,0 +1,544 @@
+---
+title: 'Files API'
+description: 'Upload, download, and manage file attachments'
+---
+
+## Overview
+
+The Files API provides endpoints for uploading files, retrieving files, getting file metadata, and managing file attachments in Mattermost.
+
+## Upload File
+
+Upload a file that can be attached to a post.
+
+```http
+POST /api/v4/files
+```
+
+### Request Methods
+
+Two methods are supported:
+
+1. **Multipart form data** (all server versions)
+2. **Binary body with query parameters** (server version 4.8+)
+
+### Query Parameters
+
+<ParamField query="channel_id" type="string">
+  Channel ID where file will be uploaded
+</ParamField>
+
+<ParamField query="filename" type="string">
+  Name of the file being uploaded
+</ParamField>
+
+<ParamField query="bookmark" type="boolean">
+  Set to `true` when uploading for a channel bookmark (server 9.4+)
+</ParamField>
+
+### Multipart Form Data
+
+<ParamField body="files" type="binary">
+  File to be uploaded
+</ParamField>
+
+<ParamField body="channel_id" type="string">
+  Channel ID for the upload
+</ParamField>
+
+<ParamField body="client_ids" type="string">
+  Unique identifier returned in response
+</ParamField>
+
+### Example Request (Multipart)
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:8065/api/v4/files \
+  -H 'Authorization: Bearer your-token' \
+  -F 'files=@document.pdf' \
+  -F 'channel_id=channel123abc' \
+  -F 'client_ids=client1'
+```
+
+```javascript JavaScript
+const formData = new FormData();
+formData.append('files', fileBlob, 'document.pdf');
+formData.append('channel_id', 'channel123abc');
+
+const response = await fetch('http://localhost:8065/api/v4/files', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer your-token'
+  },
+  body: formData
+});
+```
+</CodeGroup>
+
+### Example Request (Binary Body)
+
+```bash
+curl -X POST \
+  'http://localhost:8065/api/v4/files?channel_id=channel123abc&filename=report.pdf' \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/pdf' \
+  --data-binary '@report.pdf'
+```
+
+### Response
+
+<ResponseField name="file_infos" type="array">
+  Array of uploaded file metadata objects
+</ResponseField>
+
+<ResponseField name="client_ids" type="array">
+  Array of client IDs from the request
+</ResponseField>
+
+```json Response Example
+{
+  "file_infos": [
+    {
+      "id": "file789xyz",
+      "user_id": "user456def",
+      "post_id": "",
+      "create_at": 1507840900004,
+      "update_at": 1507840900004,
+      "delete_at": 0,
+      "name": "document.pdf",
+      "extension": "pdf",
+      "size": 245760,
+      "mime_type": "application/pdf",
+      "width": 0,
+      "height": 0,
+      "has_preview_image": false
+    }
+  ],
+  "client_ids": ["client1"]
+}
+```
+
+## Get File
+
+Download a file by ID.
+
+```http
+GET /api/v4/files/{file_id}
+```
+
+### Path Parameters
+
+<ParamField path="file_id" type="string" required>
+  File ID to retrieve
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/files/{file_id} > downloaded-file.pdf
+```
+
+### Response
+
+Binary file content with appropriate `Content-Type` header.
+
+## Get File Thumbnail
+
+Get a thumbnail image for a file (if available).
+
+```http
+GET /api/v4/files/{file_id}/thumbnail
+```
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/files/{file_id}/thumbnail > thumbnail.jpg
+```
+
+<Note>
+Thumbnails are automatically generated for image files and some document types.
+</Note>
+
+## Get File Preview
+
+Get a preview image for a file.
+
+```http
+GET /api/v4/files/{file_id}/preview
+```
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/files/{file_id}/preview > preview.jpg
+```
+
+## Get File Info
+
+Get metadata for a file without downloading it.
+
+```http
+GET /api/v4/files/{file_id}/info
+```
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/files/{file_id}/info
+```
+
+### Response
+
+<ResponseField name="id" type="string">
+  File identifier
+</ResponseField>
+
+<ResponseField name="user_id" type="string">
+  ID of user who uploaded the file
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Original filename
+</ResponseField>
+
+<ResponseField name="extension" type="string">
+  File extension (e.g., "pdf", "jpg")
+</ResponseField>
+
+<ResponseField name="size" type="integer">
+  File size in bytes
+</ResponseField>
+
+<ResponseField name="mime_type" type="string">
+  MIME type (e.g., "application/pdf")
+</ResponseField>
+
+<ResponseField name="width" type="integer">
+  Image width in pixels (0 for non-images)
+</ResponseField>
+
+<ResponseField name="height" type="integer">
+  Image height in pixels (0 for non-images)
+</ResponseField>
+
+<ResponseField name="has_preview_image" type="boolean">
+  Whether a preview image is available
+</ResponseField>
+
+```json Response Example
+{
+  "id": "file789xyz",
+  "user_id": "user456def",
+  "post_id": "post123abc",
+  "create_at": 1507840900004,
+  "update_at": 1507840900004,
+  "delete_at": 0,
+  "name": "presentation.pptx",
+  "extension": "pptx",
+  "size": 2457600,
+  "mime_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "width": 0,
+  "height": 0,
+  "has_preview_image": true
+}
+```
+
+## Get Public File Link
+
+Generate a public link to a file that can be accessed without authentication.
+
+```http
+GET /api/v4/files/{file_id}/link
+```
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/files/{file_id}/link
+```
+
+### Response
+
+<ResponseField name="link" type="string">
+  Public URL to access the file
+</ResponseField>
+
+```json Response Example
+{
+  "link": "http://localhost:8065/files/abc123xyz/public?h=hash456"
+}
+```
+
+<Warning>
+Public links allow anyone with the URL to access the file. Use with caution for sensitive files.
+</Warning>
+
+## Get Public File
+
+Access a file via a public link (no authentication required).
+
+```http
+GET /files/{file_id}/public
+```
+
+### Query Parameters
+
+<ParamField query="h" type="string" required>
+  File hash from the public link
+</ParamField>
+
+### Example Request
+
+```bash
+curl 'http://localhost:8065/files/{file_id}/public?h=hash456' > file.pdf
+```
+
+## Search Files
+
+Search for files in a team.
+
+```http
+POST /api/v4/teams/{team_id}/files/search
+```
+
+### Request Body
+
+<ParamField body="terms" type="string" required>
+  Search terms (filename, extension, or content)
+</ParamField>
+
+<ParamField body="is_or_search" type="boolean" required>
+  Use OR logic instead of AND
+</ParamField>
+
+<ParamField body="time_zone_offset" type="integer" default="0">
+  Timezone offset for date searches
+</ParamField>
+
+<ParamField body="include_deleted_channels" type="boolean">
+  Include files from archived channels
+</ParamField>
+
+<ParamField body="page" type="integer" default="0">
+  Page number (Elasticsearch only)
+</ParamField>
+
+<ParamField body="per_page" type="integer" default="60">
+  Files per page (Elasticsearch only)
+</ParamField>
+
+### Search Syntax
+
+| Modifier | Description | Example |
+|----------|-------------|----------|
+| `from:` | Files from user | `from:john` |
+| `in:` | Files in channel | `in:dev-team` |
+| `ext:` | Files with extension | `ext:pdf` |
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/teams/{team_id}/files/search \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "terms": "from:john ext:pdf presentation",
+    "is_or_search": false
+  }'
+```
+
+<Note>
+Minimum server version: 5.34. File content search requires file content extraction to be enabled.
+</Note>
+
+## Search Files Across Teams
+
+Search for files across all teams the current user belongs to.
+
+```http
+POST /api/v4/files/search
+```
+
+Same parameters as team-specific search.
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/files/search \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "terms": "ext:docx contract",
+    "is_or_search": false
+  }'
+```
+
+<Note>
+Minimum server version: 10.2
+</Note>
+
+## Attach Files to Posts
+
+After uploading files, attach them to a post:
+
+```json
+{
+  "channel_id": "channel123abc",
+  "message": "Here are the documents",
+  "file_ids": ["file789xyz", "file456abc"]
+}
+```
+
+<Warning>
+Posts are limited to 5 file attachments maximum.
+</Warning>
+
+## Supported File Types
+
+Mattermost supports a wide range of file types:
+
+### Images
+- JPEG, PNG, GIF, BMP, TIFF
+- SVG (preview support)
+
+### Documents
+- PDF
+- Microsoft Office (DOC, DOCX, XLS, XLSX, PPT, PPTX)
+- OpenOffice/LibreOffice formats
+
+### Archives
+- ZIP, TAR, GZ
+
+### Code & Text
+- Source code files
+- Plain text, Markdown
+- JSON, XML, YAML
+
+### Media
+- Videos (MP4, MOV, AVI)
+- Audio (MP3, WAV, M4A)
+
+## File Size Limits
+
+Default maximum file size is configurable by the server administrator:
+
+- Default: 50 MB per file
+- Configurable up to 100 MB or higher
+
+<Note>
+Check with your server administrator for specific file size limits in your instance.
+</Note>
+
+## Image Processing
+
+For uploaded images, Mattermost automatically:
+
+1. Generates thumbnails (up to 120x120 pixels)
+2. Creates previews (up to 1920x1440 pixels)
+3. Extracts image dimensions (width/height)
+4. Determines if the image has transparency
+
+## Permissions
+
+| Operation | Required Permission |
+|-----------|--------------------|
+| Upload file | `upload_file` |
+| Get file | `read_channel` for the file's channel or be uploader |
+| Get file info | `read_channel` for the file's channel or be uploader |
+| Get public link | `read_channel` for the file's channel or be uploader |
+| Search files | `view_team` for the team |
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `400` | Invalid parameters or file format |
+| `401` | Not authenticated |
+| `403` | Insufficient permissions or file inaccessible |
+| `404` | File not found |
+| `413` | File too large |
+| `501` | Feature disabled (e.g., file uploads disabled) |
+
+## Cloud Plan Limits
+
+For cloud deployments, files may have accessibility limits based on the plan:
+
+### Response Headers
+
+When a file is beyond the plan's limit:
+
+```http
+First-Inaccessible-File-Time: 1
+```
+
+This header indicates the file is past the cloud plan's storage limit.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Optimize File Sizes">
+    Compress large files before uploading to improve upload times and save storage space.
+  </Accordion>
+  
+  <Accordion title="Use Appropriate File Formats">
+    Use web-friendly formats (JPEG for photos, PDF for documents) for better preview support.
+  </Accordion>
+  
+  <Accordion title="Provide Descriptive Filenames">
+    Use clear, descriptive filenames to make files easier to search and identify.
+  </Accordion>
+  
+  <Accordion title="Virus Scanning">
+    Consider implementing virus scanning for uploaded files in production environments.
+  </Accordion>
+</AccordionGroup>
+
+## Example: Complete File Upload Flow
+
+```javascript
+// 1. Upload file
+const formData = new FormData();
+formData.append('files', fileBlob, 'report.pdf');
+formData.append('channel_id', 'channel123abc');
+
+const uploadResponse = await fetch('http://localhost:8065/api/v4/files', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer your-token' },
+  body: formData
+});
+
+const { file_infos } = await uploadResponse.json();
+const fileId = file_infos[0].id;
+
+// 2. Create post with attached file
+const postResponse = await fetch('http://localhost:8065/api/v4/posts', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer your-token',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    channel_id: 'channel123abc',
+    message: 'Here is the report',
+    file_ids: [fileId]
+  })
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Posts API" icon="message" href="/api/posts">
+    Attach files to posts
+  </Card>
+  <Card title="Channels API" icon="hashtag" href="/api/channels">
+    Upload files to channels
+  </Card>
+</CardGroup>

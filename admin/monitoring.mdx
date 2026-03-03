@@ -1,0 +1,727 @@
+---
+title: Monitoring
+description: Metrics, logging, health checks, and Prometheus integration for Mattermost
+---
+
+Proactive monitoring is essential for maintaining Mattermost performance and availability. This guide covers metrics collection, logging, health checks, and observability best practices.
+
+## Health Checks
+
+Mattermost provides built-in health check endpoints for monitoring service availability.
+
+### API Health Endpoints
+
+<CodeGroup>
+```bash Basic Ping
+# Simple health check
+curl http://localhost:8065/api/v4/system/ping
+# Response: {"status":"OK"}
+
+# Check response time
+time curl -s http://localhost:8065/api/v4/system/ping
+```
+
+```bash Detailed Health Check
+# Comprehensive health check (requires authentication)
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:8065/api/v4/system/ping?get_server_status=true
+
+# Response includes:
+# - Database connectivity
+# - File storage status
+# - Cluster health (if enabled)
+# - License status
+```
+
+```bash Docker Health Check
+# Docker container health check
+docker inspect --format='{{json .State.Health}}' mattermost-app | jq
+
+# Using docker-compose
+docker compose ps mattermost
+```
+</CodeGroup>
+
+### Health Check Configuration
+
+Docker Compose health check example:
+
+```yaml
+services:
+  mattermost:
+    image: mattermost/mattermost-team-edition:latest
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8065/api/v4/system/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+```
+
+Kubernetes probes:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /api/v4/system/ping
+    port: 8065
+  initialDelaySeconds: 90
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /api/v4/system/ping
+    port: 8065
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+```
+
+## Prometheus Metrics
+
+Mattermost exposes Prometheus-compatible metrics on a dedicated port.
+
+### Enable Metrics
+
+<Steps>
+  <Step title="Configure Metrics Endpoint">
+    ```json
+    {
+      "MetricsSettings": {
+        "Enable": true,
+        "ListenAddress": ":8067",
+        "BlockProfileRate": 0,
+        "EnableClientMetrics": true,
+        "EnableNotificationMetrics": true
+      }
+    }
+    ```
+    
+    Or using environment variables:
+    ```bash
+    export MM_METRICSSETTINGS_ENABLE=true
+    export MM_METRICSSETTINGS_LISTENADDRESS=":8067"
+    ```
+  </Step>
+  
+  <Step title="Verify Metrics Endpoint">
+    ```bash
+    # Check metrics are exposed
+    curl http://localhost:8067/metrics
+    
+    # Count available metrics
+    curl -s http://localhost:8067/metrics | grep "^mattermost_" | wc -l
+    ```
+  </Step>
+  
+  <Step title="Configure Prometheus">
+    Create or update `prometheus.yml`:
+    
+    ```yaml
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    
+    scrape_configs:
+      - job_name: 'mattermost'
+        static_configs:
+          - targets: ['localhost:8067']
+            labels:
+              instance: 'mattermost-prod'
+              environment: 'production'
+        
+        # For Docker environment
+        # - targets: ['host.docker.internal:8067']
+        
+        # For Kubernetes
+        # kubernetes_sd_configs:
+        #   - role: pod
+        #     namespaces:
+        #       names:
+        #         - mattermost
+    ```
+  </Step>
+</Steps>
+
+### Key Metrics
+
+Mattermost exposes hundreds of metrics. Here are the most important ones:
+
+**Application Metrics:**
+```prometheus
+# HTTP request metrics
+mattermost_http_requests_total{method="POST",path="/api/v4/posts"}
+mattermost_http_request_duration_seconds{method="GET",path="/api/v4/users/me"}
+mattermost_http_errors_total{method="POST",status="500"}
+
+# WebSocket connections
+mattermost_websocket_connections_total
+mattermost_websocket_broadcasts_total
+
+# Database metrics
+mattermost_db_search_duration_seconds
+mattermost_db_store_duration_seconds
+mattermost_db_replica_lag_seconds
+
+# Cache metrics
+mattermost_cache_hit_total
+mattermost_cache_miss_total
+mattermost_cache_invalidation_total
+
+# Cluster metrics (HA deployments)
+mattermost_cluster_cluster_requests_total
+mattermost_cluster_cluster_request_duration_seconds
+mattermost_cluster_event_type_totals
+```
+
+**System Metrics:**
+```prometheus
+# Process metrics
+process_cpu_seconds_total
+process_resident_memory_bytes
+process_open_fds
+
+# Go runtime metrics
+go_goroutines
+go_threads
+go_memstats_alloc_bytes
+go_memstats_heap_alloc_bytes
+go_gc_duration_seconds
+```
+
+**Custom Metrics:**
+```prometheus
+# User activity
+mattermost_posts_total
+mattermost_websocket_broadcasts_total
+mattermost_login_total
+
+# Search performance
+mattermost_search_duration_seconds
+
+# Plugin metrics
+mattermost_plugin_api_duration_seconds
+mattermost_plugin_hook_duration_seconds
+```
+
+## Prometheus Setup
+
+### Docker Compose with Prometheus
+
+```yaml
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    networks:
+      - mattermost
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    networks:
+      - mattermost
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-data:
+```
+
+### Kubernetes Prometheus Operator
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mattermost
+  namespace: mattermost
+  labels:
+    app: mattermost
+spec:
+  selector:
+    matchLabels:
+      app: mattermost
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+```
+
+## Grafana Dashboards
+
+### Configure Grafana Data Source
+
+<Steps>
+  <Step title="Access Grafana">
+    Navigate to `http://localhost:3000`
+    
+    Default credentials:
+    - Username: `admin`
+    - Password: `admin`
+  </Step>
+  
+  <Step title="Add Prometheus Data Source">
+    1. Go to Configuration > Data Sources
+    2. Click "Add data source"
+    3. Select "Prometheus"
+    4. Set URL: `http://prometheus:9090`
+    5. Click "Save & Test"
+  </Step>
+  
+  <Step title="Import Mattermost Dashboard">
+    1. Go to Dashboards > Import
+    2. Enter dashboard ID or upload JSON
+    3. Select Prometheus data source
+    4. Click "Import"
+  </Step>
+</Steps>
+
+### Sample Dashboard Queries
+
+**HTTP Request Rate:**
+```promql
+rate(mattermost_http_requests_total[5m])
+```
+
+**Average Response Time:**
+```promql
+rate(mattermost_http_request_duration_seconds_sum[5m]) 
+/ 
+rate(mattermost_http_request_duration_seconds_count[5m])
+```
+
+**Error Rate:**
+```promql
+rate(mattermost_http_errors_total[5m])
+```
+
+**Active WebSocket Connections:**
+```promql
+mattermost_websocket_connections_total
+```
+
+**Database Query Duration (p95):**
+```promql
+histogram_quantile(0.95, 
+  rate(mattermost_db_store_duration_seconds_bucket[5m])
+)
+```
+
+**Memory Usage:**
+```promql
+process_resident_memory_bytes{job="mattermost"}
+```
+
+**Goroutine Count:**
+```promql
+go_goroutines{job="mattermost"}
+```
+
+## Logging
+
+Mattermost supports multiple logging outputs and formats.
+
+### Log Configuration
+
+```json
+{
+  "LogSettings": {
+    "EnableConsole": true,
+    "ConsoleLevel": "INFO",
+    "ConsoleJson": true,
+    "EnableColor": false,
+    "EnableFile": true,
+    "FileLevel": "INFO",
+    "FileJson": true,
+    "FileLocation": "/mattermost/logs/mattermost.log",
+    "EnableWebhookDebugging": true,
+    "EnableDiagnostics": true,
+    "VerboseDiagnostics": false,
+    "MaxFieldSize": 2048
+  }
+}
+```
+
+**Log Levels:**
+- `DEBUG` - Detailed information for debugging
+- `INFO` - General informational messages (recommended for production)
+- `WARN` - Warning messages
+- `ERROR` - Error messages
+- `FATAL` - Critical errors causing shutdown
+
+### Structured Logging
+
+Enable JSON logging for better parsing:
+
+```bash
+export MM_LOGSETTINGS_CONSOLEJSON=true
+export MM_LOGSETTINGS_FILEJSON=true
+```
+
+Sample JSON log entry:
+```json
+{
+  "timestamp": "2024-03-15T14:30:45.123Z",
+  "level": "info",
+  "msg": "HTTP request",
+  "caller": "web/handlers.go:123",
+  "method": "POST",
+  "path": "/api/v4/posts",
+  "status": 201,
+  "duration": 45.3,
+  "user_id": "abc123"
+}
+```
+
+### Log Aggregation
+
+**Loki Integration:**
+
+```yaml
+services:
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - mattermost
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./promtail-config.yaml:/etc/promtail/config.yaml:ro
+      - ../logs:/var/log/mattermost:ro
+    networks:
+      - mattermost
+    depends_on:
+      - loki
+```
+
+**Promtail Configuration:**
+
+```yaml
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: mattermost
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: mattermost
+          __path__: /var/log/mattermost/*.log
+    
+    pipeline_stages:
+      - json:
+          expressions:
+            timestamp: timestamp
+            level: level
+            message: msg
+      - labels:
+          level:
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+```
+
+### Elasticsearch/OpenSearch
+
+For advanced log analysis:
+
+```bash
+# Configure Filebeat to ship logs
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/mattermost/mattermost.log
+  json.keys_under_root: true
+  json.add_error_key: true
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  index: "mattermost-%{+yyyy.MM.dd}"
+```
+
+## Performance Monitoring
+
+### Application Performance
+
+**Key Performance Indicators (KPIs):**
+
+```promql
+# Average response time
+rate(mattermost_http_request_duration_seconds_sum[5m])
+/ 
+rate(mattermost_http_request_duration_seconds_count[5m])
+
+# Request throughput (requests per second)
+rate(mattermost_http_requests_total[5m])
+
+# Error rate percentage
+rate(mattermost_http_errors_total[5m]) 
+/ 
+rate(mattermost_http_requests_total[5m]) * 100
+
+# Database query time (p99)
+histogram_quantile(0.99,
+  rate(mattermost_db_store_duration_seconds_bucket[5m])
+)
+```
+
+### Resource Monitoring
+
+**CPU Usage:**
+```promql
+rate(process_cpu_seconds_total{job="mattermost"}[5m]) * 100
+```
+
+**Memory Usage:**
+```promql
+process_resident_memory_bytes{job="mattermost"} / 1024 / 1024
+```
+
+**Disk I/O:**
+```promql
+rate(process_disk_read_bytes_total{job="mattermost"}[5m])
+rate(process_disk_written_bytes_total{job="mattermost"}[5m])
+```
+
+**Network Traffic:**
+```promql
+rate(process_network_receive_bytes_total{job="mattermost"}[5m])
+rate(process_network_transmit_bytes_total{job="mattermost"}[5m])
+```
+
+## Alerting
+
+### Prometheus Alerts
+
+Create `alerts.yml`:
+
+```yaml
+groups:
+  - name: mattermost
+    interval: 30s
+    rules:
+      - alert: MattermostDown
+        expr: up{job="mattermost"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Mattermost instance is down"
+          description: "Mattermost has been down for more than 1 minute"
+      
+      - alert: HighErrorRate
+        expr: |
+          rate(mattermost_http_errors_total[5m]) 
+          / 
+          rate(mattermost_http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }}"
+      
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            rate(mattermost_http_request_duration_seconds_bucket[5m])
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time"
+          description: "95th percentile response time is {{ $value }}s"
+      
+      - alert: DatabaseConnectionIssue
+        expr: mattermost_db_store_duration_seconds > 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection issues"
+          description: "Database queries taking too long"
+      
+      - alert: HighMemoryUsage
+        expr: |
+          process_resident_memory_bytes{job="mattermost"} 
+          / 1024 / 1024 / 1024 > 8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}GB"
+      
+      - alert: TooManyGoroutines
+        expr: go_goroutines{job="mattermost"} > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Too many goroutines"
+          description: "Goroutine count is {{ $value }}"
+```
+
+### Alertmanager Configuration
+
+```yaml
+route:
+  receiver: 'default'
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  
+  routes:
+    - match:
+        severity: critical
+      receiver: 'pagerduty'
+    - match:
+        severity: warning
+      receiver: 'slack'
+
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: 'ops@example.com'
+        from: 'alertmanager@example.com'
+        smarthost: 'smtp.example.com:587'
+  
+  - name: 'slack'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL'
+        channel: '#alerts'
+        title: 'Mattermost Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
+  
+  - name: 'pagerduty'
+    pagerduty_configs:
+      - service_key: 'YOUR_PAGERDUTY_KEY'
+```
+
+## OpenTelemetry Integration
+
+For distributed tracing:
+
+```yaml
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus metrics
+    networks:
+      - mattermost
+```
+
+## Troubleshooting
+
+### Metrics Not Available
+
+```bash
+# Check metrics endpoint is enabled
+grep -i "metrics" /opt/mattermost/config/config.json
+
+# Test metrics endpoint
+curl -v http://localhost:8067/metrics
+
+# Check firewall
+sudo iptables -L -n | grep 8067
+```
+
+### High Memory Usage
+
+```bash
+# Check memory usage
+free -h
+docker stats mattermost-app
+
+# Review Go heap profile
+curl http://localhost:8067/debug/pprof/heap > heap.prof
+go tool pprof heap.prof
+```
+
+### Slow Queries
+
+```sql
+-- PostgreSQL slow query log
+ALTER DATABASE mattermost SET log_min_duration_statement = 1000;
+
+-- Check slow queries
+SELECT * FROM pg_stat_statements 
+ORDER BY mean_exec_time DESC 
+LIMIT 10;
+```
+
+## Best Practices
+
+<Warning>
+  **Monitoring Checklist:**
+  
+  - [ ] Enable Prometheus metrics on dedicated port (8067)
+  - [ ] Set up Grafana dashboards for visualization
+  - [ ] Configure alerting for critical metrics
+  - [ ] Enable structured JSON logging
+  - [ ] Centralize logs with Loki or ELK stack
+  - [ ] Monitor database query performance
+  - [ ] Track WebSocket connection count
+  - [ ] Set up health check automation
+  - [ ] Monitor disk space usage
+  - [ ] Review logs and metrics weekly
+  - [ ] Test alert notifications regularly
+  - [ ] Retain metrics for 30+ days
+</Warning>
+
+## Related Resources
+
+- [Deployment](/admin/deployment)
+- [Configuration](/admin/configuration)
+- [Backup & Restore](/admin/backup-restore)
+- [Security](/admin/security)

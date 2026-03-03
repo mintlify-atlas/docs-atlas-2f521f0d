@@ -1,0 +1,663 @@
+---
+title: 'Posts API'
+description: 'Create, retrieve, update, and manage posts and messages'
+---
+
+## Overview
+
+The Posts API provides endpoints for creating and managing posts (messages) in channels, including creating posts, updating posts, searching posts, and managing post metadata.
+
+## Create Post
+
+Create a new post in a channel.
+
+```http
+POST /api/v4/posts
+```
+
+### Request Body
+
+<ParamField body="channel_id" type="string" required>
+  Channel ID where the post will be created
+</ParamField>
+
+<ParamField body="message" type="string" required>
+  Post message content (supports Markdown formatting)
+</ParamField>
+
+<ParamField body="root_id" type="string">
+  Post ID to reply to (creates a thread reply)
+</ParamField>
+
+<ParamField body="file_ids" type="array">
+  Array of file IDs to attach (max 5 files per post)
+</ParamField>
+
+<ParamField body="props" type="object">
+  Custom JSON properties for the post
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Post metadata including priority settings
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="set_online" type="boolean">
+  Set user status to online when creating post
+</ParamField>
+
+### Example Request
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:8065/api/v4/posts \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "channel_id": "channel123abc",
+    "message": "Hello team! This is a **markdown** message."
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8065/api/v4/posts', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer your-token',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    channel_id: 'channel123abc',
+    message: 'Hello team! This is a **markdown** message.'
+  })
+});
+```
+</CodeGroup>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Unique post identifier
+</ResponseField>
+
+<ResponseField name="create_at" type="integer">
+  Creation timestamp in milliseconds
+</ResponseField>
+
+<ResponseField name="channel_id" type="string">
+  Channel ID where post was created
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Post message content
+</ResponseField>
+
+<ResponseField name="user_id" type="string">
+  ID of user who created the post
+</ResponseField>
+
+```json Response Example
+{
+  "id": "post789xyz",
+  "create_at": 1507840900004,
+  "update_at": 1507840900004,
+  "delete_at": 0,
+  "user_id": "user456def",
+  "channel_id": "channel123abc",
+  "root_id": "",
+  "message": "Hello team! This is a **markdown** message.",
+  "type": "",
+  "hashtags": "",
+  "pending_post_id": ""
+}
+```
+
+## Create Post with Priority
+
+Create a post with priority metadata.
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/posts \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "channel_id": "channel123abc",
+    "message": "Urgent: Server maintenance at 2pm",
+    "metadata": {
+      "priority": {
+        "priority": "urgent",
+        "requested_ack": true
+      }
+    }
+  }'
+```
+
+<Note>
+Priority values: `""` (normal), `"important"`, or `"urgent"`
+</Note>
+
+## Create Thread Reply
+
+Reply to an existing post to create a thread.
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/posts \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "channel_id": "channel123abc",
+    "message": "This is a reply to the thread",
+    "root_id": "post789xyz"
+  }'
+```
+
+## Create Ephemeral Post
+
+Create a temporary post visible only to a specific user.
+
+```http
+POST /api/v4/posts/ephemeral
+```
+
+### Request Body
+
+<ParamField body="user_id" type="string" required>
+  Target user ID who will see the ephemeral post
+</ParamField>
+
+<ParamField body="post" type="object" required>
+  Post object containing channel_id and message
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/posts/ephemeral \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "user_id": "user456def",
+    "post": {
+      "channel_id": "channel123abc",
+      "message": "This message is only visible to you"
+    }
+  }'
+```
+
+<Note>
+Requires `create_post_ephemeral` permission (typically system admin only)
+</Note>
+
+## Get Post
+
+Retrieve a single post by ID.
+
+```http
+GET /api/v4/posts/{post_id}
+```
+
+### Path Parameters
+
+<ParamField path="post_id" type="string" required>
+  Post ID to retrieve
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="include_deleted" type="boolean" default="false">
+  Include deleted posts (requires `manage_system` permission)
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/posts/{post_id}
+```
+
+## Get Post Thread
+
+Get a post and all replies in its thread.
+
+```http
+GET /api/v4/posts/{post_id}/thread
+```
+
+### Query Parameters
+
+<ParamField query="perPage" type="integer" default="0">
+  Number of posts per page
+</ParamField>
+
+<ParamField query="fromPost" type="string">
+  Post ID to return next page from
+</ParamField>
+
+<ParamField query="direction" type="string">
+  Direction to return posts: `up` or `down`
+</ParamField>
+
+<ParamField query="collapsedThreads" type="boolean" default="false">
+  Whether client uses collapsed reply threads
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/posts/{post_id}/thread
+```
+
+## Update Post
+
+Update an existing post.
+
+```http
+PUT /api/v4/posts/{post_id}
+```
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  Post ID (must match path parameter)
+</ParamField>
+
+<ParamField body="message" type="string">
+  Updated message text
+</ParamField>
+
+<ParamField body="is_pinned" type="boolean">
+  Pin the post to the channel
+</ParamField>
+
+<ParamField body="has_reactions" type="boolean">
+  Whether post has reactions
+</ParamField>
+
+<ParamField body="props" type="string">
+  Custom JSON properties
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/posts/{post_id} \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "id": "post789xyz",
+    "message": "Updated message content"
+  }'
+```
+
+## Patch Post
+
+Partially update a post.
+
+```http
+PUT /api/v4/posts/{post_id}/patch
+```
+
+### Request Body
+
+<ParamField body="message" type="string">
+  Updated message text
+</ParamField>
+
+<ParamField body="is_pinned" type="boolean">
+  Pin/unpin the post
+</ParamField>
+
+<ParamField body="file_ids" type="array">
+  Updated list of attached file IDs
+</ParamField>
+
+<ParamField body="has_reactions" type="boolean">
+  Whether post has reactions
+</ParamField>
+
+<ParamField body="props" type="string">
+  Custom properties
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/posts/{post_id}/patch \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"is_pinned": true}'
+```
+
+## Delete Post
+
+Soft delete a post.
+
+```http
+DELETE /api/v4/posts/{post_id}
+```
+
+### Example Request
+
+```bash
+curl -X DELETE \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/posts/{post_id}
+```
+
+<Note>
+Posts are soft deleted and can be recovered. Requires being the post author or having `delete_others_posts` permission.
+</Note>
+
+## Get Posts for Channel
+
+Get a page of posts in a channel.
+
+```http
+GET /api/v4/channels/{channel_id}/posts
+```
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="60">
+  Posts per page
+</ParamField>
+
+<ParamField query="since" type="integer">
+  Return posts created after this timestamp (milliseconds)
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/channels/{channel_id}/posts?page=0&per_page=50'
+```
+
+## Get Flagged Posts
+
+Get posts that a user has flagged.
+
+```http
+GET /api/v4/users/{user_id}/posts/flagged
+```
+
+### Query Parameters
+
+<ParamField query="team_id" type="string">
+  Filter by team ID
+</ParamField>
+
+<ParamField query="channel_id" type="string">
+  Filter by channel ID
+</ParamField>
+
+<ParamField query="page" type="integer" default="0">
+  Page number
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="60">
+  Posts per page
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/users/me/posts/flagged?page=0&per_page=50'
+```
+
+## Search Posts
+
+Search for posts in a team.
+
+```http
+POST /api/v4/teams/{team_id}/posts/search
+```
+
+### Request Body
+
+<ParamField body="terms" type="string" required>
+  Search terms
+</ParamField>
+
+<ParamField body="is_or_search" type="boolean">
+  Use OR logic instead of AND
+</ParamField>
+
+<ParamField body="time_zone_offset" type="integer">
+  Timezone offset for date searches
+</ParamField>
+
+<ParamField body="include_deleted_channels" type="boolean">
+  Include posts from archived channels
+</ParamField>
+
+<ParamField body="page" type="integer">
+  Page number
+</ParamField>
+
+<ParamField body="per_page" type="integer">
+  Posts per page
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/teams/{team_id}/posts/search \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "terms": "important meeting",
+    "is_or_search": false
+  }'
+```
+
+### Search Modifiers
+
+Enhance searches with special syntax:
+
+| Modifier | Description | Example |
+|----------|-------------|----------|
+| `from:` | Posts from user | `from:john` |
+| `in:` | Posts in channel | `in:town-square` |
+| `on:` | Posts on date | `on:2025-03-15` |
+| `before:` | Posts before date | `before:2025-03-15` |
+| `after:` | Posts after date | `after:2025-03-01` |
+| `"phrase"` | Exact phrase | `"project deadline"` |
+
+### Example with Modifiers
+
+```json
+{
+  "terms": "from:john in:dev-team \"code review\"",
+  "is_or_search": false
+}
+```
+
+## Mark Post as Unread
+
+Mark a channel as unread from a specific post.
+
+```http
+POST /api/v4/users/{user_id}/posts/{post_id}/set_unread
+```
+
+### Path Parameters
+
+<ParamField path="user_id" type="string" required>
+  User GUID (or `me`)
+</ParamField>
+
+<ParamField path="post_id" type="string" required>
+  Post GUID to mark unread from
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/users/me/posts/{post_id}/set_unread
+```
+
+<Note>
+Minimum server version: 5.18
+</Note>
+
+## Pin/Unpin Post
+
+Pin a post to make it easily accessible in a channel.
+
+### Example: Pin a Post
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/posts/{post_id}/patch \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"is_pinned": true}'
+```
+
+### Example: Unpin a Post
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/posts/{post_id}/patch \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"is_pinned": false}'
+```
+
+## Get Pinned Posts for Channel
+
+Retrieve all pinned posts in a channel.
+
+```http
+GET /api/v4/channels/{channel_id}/pinned
+```
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/channels/{channel_id}/pinned
+```
+
+## Post Formatting
+
+Mattermost posts support Markdown formatting:
+
+### Basic Formatting
+
+```markdown
+**bold text**
+*italic text*
+~~strikethrough~~
+`inline code`
+```
+
+### Code Blocks
+
+````markdown
+```javascript
+const hello = 'world';
+```
+````
+
+### Links
+
+```markdown
+[Link text](https://example.com)
+```
+
+### Lists
+
+```markdown
+- Bullet item 1
+- Bullet item 2
+
+1. Numbered item 1
+2. Numbered item 2
+```
+
+### Mentions
+
+```markdown
+@username - Mention a user
+@channel - Notify all channel members
+@all - Notify everyone in the channel
+```
+
+### Emojis
+
+```markdown
+:smile: :thumbsup: :tada:
+```
+
+## File Attachments
+
+Attach files to posts by including file IDs:
+
+```json
+{
+  "channel_id": "channel123abc",
+  "message": "Here are the documents",
+  "file_ids": ["file1abc", "file2def", "file3ghi"]
+}
+```
+
+<Warning>
+Posts are limited to 5 file attachments. For more files, create additional posts.
+</Warning>
+
+## Permissions
+
+| Operation | Required Permission |
+|-----------|--------------------|
+| Create post | `create_post` for the channel |
+| Read post | `read_channel` for the channel |
+| Update own post | `edit_post` |
+| Update others' post | `edit_others_posts` |
+| Delete own post | Be the post author |
+| Delete others' post | `delete_others_posts` |
+| Create ephemeral post | `create_post_ephemeral` (admin) |
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `400` | Invalid parameters (e.g., empty message) |
+| `401` | Not authenticated |
+| `403` | Insufficient permissions |
+| `404` | Post or channel not found |
+
+## Post Response Headers
+
+### Cloud Plan Limits
+
+When accessing posts beyond your cloud plan's limit:
+
+```http
+Has-Inaccessible-Posts: true
+```
+
+This header indicates the post is past the cloud plan's message history limit.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Files API" icon="file" href="/api/files">
+    Upload and attach files to posts
+  </Card>
+  <Card title="Webhooks API" icon="webhook" href="/api/webhooks">
+    Create integrations to post messages
+  </Card>
+</CardGroup>

@@ -1,0 +1,262 @@
+---
+title: Real-Time Messaging
+description: Communicate instantly with team members through powerful messaging features
+---
+
+Mattermost provides robust real-time messaging capabilities that enable seamless communication across your organization. All messages are delivered instantly via WebSocket connections, ensuring everyone stays in sync.
+
+## Core Messaging Features
+
+<CardGroup cols={2}>
+  <Card title="Instant Delivery" icon="bolt">
+    Messages are delivered in real-time using WebSocket technology for instant communication
+  </Card>
+  
+  <Card title="Rich Formatting" icon="code">
+    Support for Markdown, code blocks, tables, and inline formatting
+  </Card>
+  
+  <Card title="File Attachments" icon="paperclip">
+    Attach files, images, videos, and documents to your messages
+  </Card>
+  
+  <Card title="Message Editing" icon="pencil">
+    Edit messages after sending with full edit history tracking
+  </Card>
+</CardGroup>
+
+## Message Types
+
+Mattermost supports several types of messages to accommodate different communication needs:
+
+### Standard Messages
+
+Regular text messages support up to 16,383 characters (4,000 characters in older versions) and can include:
+- **Markdown formatting** - Bold, italic, lists, headers, and more
+- **Code blocks** - Syntax-highlighted code in 100+ languages
+- **Tables** - Organize data with Markdown tables
+- **Emojis** - Built-in and custom emoji reactions
+- **@mentions** - Notify specific users or groups
+- **Channel links** - Reference other channels with ~channel-name
+
+<Note>
+The maximum message length is configurable and can be set to different values based on your Mattermost version. Version 6.0+ supports up to 65,535 bytes.
+</Note>
+
+### System Messages
+
+Automated messages inform users of channel and team activities:
+- User joins and leaves
+- Channel header and purpose changes
+- Channel privacy conversions
+- User additions and removals
+- Team joins and departures
+
+### Special Message Features
+
+#### Threaded Replies
+
+Organize conversations with threaded replies that keep discussions focused:
+- Reply to any message to start a thread
+- Collapsed Thread view (CRT) for cleaner channels
+- Thread following to track important discussions
+- Unread indicators for new replies
+
+```typescript
+// Post structure includes threading metadata
+interface Post {
+  RootId: string;        // Parent post ID for threaded replies
+  ReplyCount: number;    // Number of replies in thread
+  LastReplyAt: number;   // Timestamp of most recent reply
+  IsFollowing: boolean;  // User following status
+}
+```
+
+#### Message Pinning
+
+Pin important messages to the channel header for easy access:
+- Pinned messages remain accessible regardless of channel activity
+- Multiple messages can be pinned per channel
+- View all pinned messages in a dedicated panel
+
+#### Message Reactions
+
+Express reactions without cluttering the conversation:
+- React with any emoji (built-in or custom)
+- Multiple users can add the same reaction
+- See who reacted to each message
+- Custom emoji support for organization-specific reactions
+
+## Rich Content Support
+
+### File Attachments
+
+Attach virtually any file type to your messages:
+- **Images** - Automatic thumbnails and inline preview
+- **Videos** - In-app video player
+- **Documents** - PDF, Word, Excel, PowerPoint previews
+- **Code files** - Syntax-highlighted preview
+- **Archives** - ZIP, TAR, GZ file support
+
+<Tip>
+Image attachments are automatically optimized and thumbnailed for faster loading while maintaining quality.
+</Tip>
+
+### Link Previews
+
+Automatic unfurling of links provides rich previews:
+- Website titles, descriptions, and images
+- YouTube video embeds
+- Image direct links
+- Configurable per domain
+
+### Code Blocks
+
+Share code with syntax highlighting:
+
+```go
+// Example: Creating a channel in Mattermost
+func (a *App) CreateChannelWithUser(ctx request.CTX, channel *model.Channel, userID string) (*model.Channel, *model.AppError) {
+    channel.CreatorId = userID
+    rchannel, err := a.CreateChannel(ctx, channel, true)
+    if err != nil {
+        return nil, err
+    }
+    return rchannel, nil
+}
+```
+
+Supports 100+ programming languages with automatic detection.
+
+## Message Actions
+
+### Editing Messages
+
+Edit your messages after sending:
+- Click the "..." menu on your message
+- Select "Edit"
+- Make changes and save
+- (EDITED) indicator shows the message was modified
+- Full edit history is maintained
+
+<Note>
+System administrators can configure who can edit messages and set time limits for editing.
+</Note>
+
+### Deleting Messages
+
+Remove messages you've sent:
+- Deleted messages are removed from all clients
+- Can be configured to leave a "message deleted" tombstone
+- System admins can configure deletion permissions
+- Soft delete allows for recovery if needed
+
+### Message Forwarding
+
+Forward messages to other channels:
+- Preserve original message content and formatting
+- Add context when forwarding
+- Forward to multiple channels at once
+
+## Search and Discovery
+
+Find messages quickly with powerful search:
+- **Full-text search** across all your messages
+- **Search modifiers**: `from:`, `in:`, `on:`, `before:`, `after:`
+- **Phrase search** with quotes
+- **Hashtag search** for organized topics
+- **File search** to find attachments
+
+Example searches:
+```
+from:@john in:town-square deployment
+in:engineering "code review" after:2024-01-01
+hasfile:true pdf
+```
+
+## Notifications
+
+Stay informed without being overwhelmed:
+
+### Desktop Notifications
+- Configurable per channel
+- Mentions, all messages, or nothing
+- Custom notification sounds
+- Desktop badge counts
+
+### Mobile Push Notifications
+- Delivered to iOS and Android devices
+- Configurable trigger words
+- Quiet hours support
+- Notification clearing across devices
+
+### Email Notifications
+- Batched email digests
+- Immediate notifications for mentions
+- Configurable frequency
+- Reply-by-email support
+
+<Tip>
+Configure notification preferences in **Settings > Notifications** to control when and how you're notified.
+</Tip>
+
+## Message Priority
+
+Mark messages as urgent to ensure they get attention:
+- **Urgent priority** - Highlighted with special indicator
+- Request acknowledgments from recipients
+- Persistent notifications until acknowledged
+- Visual indicators in message list
+
+## Advanced Features
+
+### Message Acknowledgments
+
+Request confirmations that messages were received:
+- Add acknowledgment request to any message
+- See who has acknowledged
+- Reminder notifications for pending acknowledgments
+- Useful for important announcements
+
+### Scheduled Messages
+
+Schedule messages to be sent later:
+- Compose now, send later
+- Edit or cancel before sending
+- Timezone-aware scheduling
+- Perfect for global teams
+
+### Auto-Responder
+
+Set automatic replies when you're away:
+- Custom auto-response message
+- Activates when status is set to Out of Office
+- Responds to direct messages automatically
+
+### Burn-on-Read Messages
+
+Send self-destructing messages for sensitive information:
+- Messages expire after being read
+- Configurable read duration
+- Automatic deletion after expiry
+- Available in direct messages
+
+<Warning>
+Burn-on-read messages are permanently deleted and cannot be recovered. Use for sensitive information only.
+</Warning>
+
+## Best Practices
+
+1. **Use threads** to keep conversations organized and channels clean
+2. **@mention sparingly** to respect teammates' time and attention
+3. **Format code** using code blocks for better readability
+4. **Pin important messages** for easy reference
+5. **Use reactions** instead of "thanks" messages to reduce noise
+6. **Search before asking** - the answer might already exist
+
+## Related Features
+
+- [Channels](/features/channels) - Organize conversations by topic
+- [Teams](/features/teams) - Structure your organization
+- [Integrations](/features/integrations) - Connect external tools
+- [Calls](/features/calls) - Voice and video communication

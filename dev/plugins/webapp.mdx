@@ -1,0 +1,646 @@
+---
+title: Web App Plugin Development
+description: Build rich user interfaces for your plugin with React components and the Plugin Registry
+---
+
+Web app plugins extend the Mattermost user interface by registering React components and hooks through the Plugin Registry. They run in the user's browser and can add UI elements throughout the application.
+
+## Setup
+
+### Project Structure
+
+```
+my-plugin/
+├── webapp/
+│   ├── src/
+│   │   ├── index.tsx          # Main plugin entry point
+│   │   ├── components/        # React components
+│   │   ├── actions.ts         # Redux actions
+│   │   └── reducers.ts        # Redux reducers
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── webpack.config.js
+└── plugin.json                # Includes webapp.bundle_path
+```
+
+### Plugin Entry Point
+
+Create `webapp/src/index.tsx`:
+
+```typescript
+import {Store} from 'redux';
+
+// Define your plugin class
+export default class Plugin {
+    // Initialize is called when the plugin is loaded
+    public initialize(registry: any, store: Store) {
+        // Register your components and hooks here
+        registry.registerPostTypeComponent('custom_mytype', MyCustomPost);
+    }
+
+    // Uninitialize is called when plugin is unloaded
+    public uninitialize() {
+        // Clean up if needed
+    }
+}
+
+// Register the plugin
+(window as any).registerPlugin('com.example.myplugin', new Plugin());
+```
+
+### Webpack Configuration
+
+```javascript
+const path = require('path');
+
+module.exports = {
+    entry: './src/index.tsx',
+    output: {
+        path: path.resolve(__dirname, 'dist'),
+        filename: 'main.js',
+    },
+    resolve: {
+        extensions: ['.ts', '.tsx', '.js', '.jsx'],
+        alias: {
+            '@': path.resolve(__dirname, 'src'),
+        },
+    },
+    module: {
+        rules: [
+            {
+                test: /\.tsx?$/,
+                use: 'ts-loader',
+                exclude: /node_modules/,
+            },
+            {
+                test: /\.scss$/,
+                use: ['style-loader', 'css-loader', 'sass-loader'],
+            },
+        ],
+    },
+    externals: {
+        react: 'React',
+        redux: 'Redux',
+        'react-redux': 'ReactRedux',
+        'react-router-dom': 'ReactRouterDom',
+    },
+};
+```
+
+<Note>
+  Mattermost provides React, Redux, and other common libraries. Mark them as `externals` to avoid bundling them.
+</Note>
+
+## Plugin Registry
+
+The Plugin Registry provides methods to register UI components and hooks.
+
+### Component Registration
+
+<Tabs>
+  <Tab title="Channel Header">
+    Add buttons or icons to the channel header:
+
+    ```typescript
+    // Register a channel header button
+    registry.registerChannelHeaderButtonAction(
+        <i className="icon fa fa-gear"/>,
+        (channel, channelMember) => {
+            // Action when clicked
+            console.log('Clicked for channel:', channel.id);
+        },
+        'Settings',        // Dropdown text
+        'Plugin Settings'  // Tooltip
+    );
+
+    // Register a channel header icon (left side)
+    registry.registerChannelHeaderIcon(
+        <MyCustomIcon />
+    );
+    ```
+  </Tab>
+
+  <Tab title="Post Components">
+    Render custom post types:
+
+    ```typescript
+    // Register custom post type
+    registry.registerPostTypeComponent(
+        'custom_poll',
+        PollPostComponent
+    );
+
+    // Example component
+    const PollPostComponent = ({post}) => {
+        const poll = JSON.parse(post.props.poll_data);
+        
+        return (
+            <div className="poll-post">
+                <h4>{poll.question}</h4>
+                {poll.options.map((option, i) => (
+                    <button key={i} onClick={() => vote(option)}>
+                        {option}
+                    </button>
+                ))}
+            </div>
+        );
+    };
+    ```
+
+    Create posts with custom type from server:
+
+    ```go
+    post := &model.Post{
+        Type:      "custom_poll",
+        ChannelId: channelID,
+        Props: map[string]interface{}{
+            "poll_data": pollJSON,
+        },
+    }
+    ```
+  </Tab>
+
+  <Tab title="Main Menu">
+    Add items to the main menu:
+
+    ```typescript
+    registry.registerMainMenuAction(
+        'My Plugin',              // Text
+        () => {                   // Action
+            // Open modal or navigate
+            this.openPluginModal();
+        },
+        <i className="icon fa fa-puzzle-piece"/>  // Mobile icon
+    );
+    ```
+  </Tab>
+
+  <Tab title="Right-Hand Sidebar">
+    Display custom content in the RHS:
+
+    ```typescript
+    // Register RHS component
+    registry.registerRightHandSidebarComponent(
+        MyRHSComponent,
+        'My Plugin Sidebar'
+    );
+
+    // Show the RHS
+    registry.registerChannelHeaderButtonAction(
+        <i className="icon fa fa-sidebar"/>,
+        (channel) => {
+            // Toggle the RHS
+            const {toggleRHSPlugin} = registry.registerAction;
+            toggleRHSPlugin('com.example.myplugin');
+        },
+        'Open Sidebar'
+    );
+
+    // RHS Component
+    const MyRHSComponent = () => {
+        return (
+            <div className="plugin-rhs">
+                <h3>Plugin Sidebar</h3>
+                <p>Custom content here</p>
+            </div>
+        );
+    };
+    ```
+  </Tab>
+
+  <Tab title="Post Dropdown">
+    Add items to post dropdown menus:
+
+    ```typescript
+    registry.registerPostDropdownMenuAction(
+        'Copy Link',              // Text
+        (postId) => {            // Action
+            const link = getPostLink(postId);
+            navigator.clipboard.writeText(link);
+        },
+        <i className="icon fa fa-link"/>  // Icon
+    );
+    ```
+  </Tab>
+</Tabs>
+
+### Available Registry Methods
+
+Here are the key registration methods:
+
+<AccordionGroup>
+  <Accordion title="registerRootComponent">
+    Register a component at the root level of the app.
+
+    ```typescript
+    registry.registerRootComponent(MyGlobalComponent);
+    ```
+  </Accordion>
+
+  <Accordion title="registerChannelHeaderButtonAction">
+    Add button to channel header (App Bar section).
+
+    ```typescript
+    registry.registerChannelHeaderButtonAction(icon, action, dropdownText, tooltipText);
+    ```
+  </Accordion>
+
+  <Accordion title="registerPostTypeComponent">
+    Render custom post types with specific type prefix.
+
+    ```typescript
+    registry.registerPostTypeComponent('custom_type', Component);
+    ```
+  </Accordion>
+
+  <Accordion title="registerMainMenuAction">
+    Add item to main menu.
+
+    ```typescript
+    registry.registerMainMenuAction(text, action, mobileIcon);
+    ```
+  </Accordion>
+
+  <Accordion title="registerChannelHeaderMenuAction">
+    Add item to channel menu dropdown.
+
+    ```typescript
+    registry.registerChannelHeaderMenuAction(text, action, shouldRender);
+    ```
+  </Accordion>
+
+  <Accordion title="registerRightHandSidebarComponent">
+    Register component for right-hand sidebar.
+
+    ```typescript
+    registry.registerRightHandSidebarComponent(Component, title);
+    ```
+  </Accordion>
+
+  <Accordion title="registerPostDropdownMenuAction">
+    Add item to post action menu.
+
+    ```typescript
+    registry.registerPostDropdownMenuAction(text, action, icon);
+    ```
+  </Accordion>
+
+  <Accordion title="registerPostWillRenderEmbedComponent">
+    Register component for custom link previews.
+
+    ```typescript
+    registry.registerPostWillRenderEmbedComponent(match, Component, toggleable);
+    ```
+  </Accordion>
+
+  <Accordion title="registerWebSocketEventHandler">
+    Handle WebSocket events from server.
+
+    ```typescript
+    registry.registerWebSocketEventHandler(
+        'custom_com.example.myplugin_event',
+        (event) => {
+            console.log('Received event:', event);
+        }
+    );
+    ```
+  </Accordion>
+
+  <Accordion title="registerSlashCommandWillBePostedHook">
+    Intercept slash commands before execution.
+
+    ```typescript
+    registry.registerSlashCommandWillBePostedHook((message, args) => {
+        if (message.startsWith('/mycommand')) {
+            // Handle or modify
+            return {message: '/modified'};
+        }
+        return {message};
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="registerReducer">
+    Add custom Redux reducer.
+
+    ```typescript
+    registry.registerReducer(myReducer);
+    ```
+  </Accordion>
+
+  <Accordion title="registerAdminConsoleCustomSection">
+    Add custom section to System Console.
+
+    ```typescript
+    registry.registerAdminConsoleCustomSection(
+        'plugins/com.example.myplugin/settings',
+        MySettingsComponent
+    );
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Working with Redux
+
+Plugins can access and extend the Redux store:
+
+### Reading State
+
+```typescript
+import {getCurrentChannel} from 'mattermost-redux/selectors/entities/channels';
+import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
+
+export default class Plugin {
+    public initialize(registry: any, store: Store) {
+        this.store = store;
+        
+        // Access state
+        const state = store.getState();
+        const currentChannel = getCurrentChannel(state);
+        const currentUser = getCurrentUser(state);
+    }
+}
+```
+
+### Custom Reducers
+
+```typescript
+// reducers.ts
+import {combineReducers} from 'redux';
+
+const myData = (state = {}, action) => {
+    switch (action.type) {
+        case 'PLUGIN_DATA_RECEIVED':
+            return {...state, ...action.data};
+        default:
+            return state;
+    }
+};
+
+export default combineReducers({
+    myData,
+});
+
+// Register in index.tsx
+registry.registerReducer(reducer);
+```
+
+### Dispatching Actions
+
+```typescript
+// actions.ts
+export const fetchPluginData = () => async (dispatch) => {
+    const response = await fetch('/plugins/com.example.myplugin/api/data');
+    const data = await response.json();
+    
+    dispatch({
+        type: 'PLUGIN_DATA_RECEIVED',
+        data,
+    });
+};
+
+// Use in component
+store.dispatch(fetchPluginData());
+```
+
+## Making API Requests
+
+### Calling Server Plugin Endpoints
+
+```typescript
+const callPluginAPI = async (endpoint: string, data: any) => {
+    const response = await fetch(
+        `/plugins/com.example.myplugin${endpoint}`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        }
+    );
+    
+    if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+    }
+    
+    return response.json();
+};
+
+// Usage
+const result = await callPluginAPI('/api/dosomething', {param: 'value'});
+```
+
+### Using Mattermost Client
+
+```typescript
+import {Client4} from 'mattermost-redux/client';
+
+// Get current user
+const user = await Client4.getMe();
+
+// Get posts in channel
+const posts = await Client4.getPosts(channelId);
+
+// Create post
+const post = await Client4.createPost({
+    channel_id: channelId,
+    message: 'Hello from plugin',
+});
+```
+
+## WebSocket Events
+
+### Listening to Events
+
+```typescript
+registry.registerWebSocketEventHandler(
+    'custom_com.example.myplugin_update',
+    (event) => {
+        const data = event.data;
+        // Update UI based on event
+        store.dispatch(updatePluginData(data));
+    }
+);
+```
+
+### Sending Events from Server
+
+From your Go plugin:
+
+```go
+p.API.PublishWebSocketEvent("update", map[string]interface{}{
+    "message": "Data updated",
+}, &model.WebsocketBroadcast{
+    ChannelId: channelID,
+})
+```
+
+Clients receive as: `custom_com.example.myplugin_update`
+
+## Styling
+
+### Using SCSS
+
+```scss
+// styles.scss
+.my-plugin {
+    &__container {
+        padding: 16px;
+        background: var(--center-channel-bg);
+    }
+    
+    &__button {
+        background: var(--button-bg);
+        color: var(--button-color);
+        border-radius: 4px;
+        
+        &:hover {
+            background: var(--button-bg-hover);
+        }
+    }
+}
+```
+
+### Using Mattermost Styles
+
+Leverage built-in CSS variables:
+
+```scss
+.my-component {
+    background: var(--center-channel-bg);
+    color: var(--center-channel-color);
+    border: 1px solid var(--center-channel-color-16);
+}
+```
+
+## Component Examples
+
+### Modal Component
+
+```typescript
+import React, {useState} from 'react';
+import {Modal} from 'react-bootstrap';
+
+const MyPluginModal = ({show, onHide}) => {
+    const [value, setValue] = useState('');
+    
+    const handleSubmit = async () => {
+        await callPluginAPI('/api/submit', {value});
+        onHide();
+    };
+    
+    return (
+        <Modal show={show} onHide={onHide}>
+            <Modal.Header closeButton>
+                <Modal.Title>My Plugin</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                <input
+                    type="text"
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    className="form-control"
+                />
+            </Modal.Body>
+            <Modal.Footer>
+                <button onClick={onHide} className="btn btn-link">
+                    Cancel
+                </button>
+                <button onClick={handleSubmit} className="btn btn-primary">
+                    Submit
+                </button>
+            </Modal.Footer>
+        </Modal>
+    );
+};
+```
+
+### Interactive Post Component
+
+```typescript
+const TaskPost = ({post}) => {
+    const [completed, setCompleted] = useState(post.props.completed);
+    
+    const toggleComplete = async () => {
+        await fetch(`/plugins/tasks/api/toggle/${post.id}`, {
+            method: 'POST',
+        });
+        setCompleted(!completed);
+    };
+    
+    return (
+        <div className="task-post">
+            <input
+                type="checkbox"
+                checked={completed}
+                onChange={toggleComplete}
+            />
+            <span className={completed ? 'completed' : ''}>
+                {post.props.task_text}
+            </span>
+        </div>
+    );
+};
+
+registry.registerPostTypeComponent('custom_task', TaskPost);
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Performance" icon="gauge-high">
+    - Use React.memo for expensive components
+    - Avoid unnecessary re-renders
+    - Debounce user input handlers
+  </Card>
+  <Card title="Accessibility" icon="universal-access">
+    - Use semantic HTML
+    - Include ARIA labels
+    - Support keyboard navigation
+  </Card>
+  <Card title="Theming" icon="palette">
+    - Use CSS variables for colors
+    - Support light and dark themes
+    - Test with different themes
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation">
+    - Handle API errors gracefully
+    - Show user-friendly error messages
+    - Log errors for debugging
+  </Card>
+</CardGroup>
+
+## Building and Testing
+
+### Development Build
+
+```bash
+cd webapp
+npm run build:watch
+```
+
+### Production Build
+
+```bash
+cd webapp
+npm run build
+```
+
+### Testing in Browser
+
+1. Upload plugin to Mattermost
+2. Open browser DevTools
+3. Check Console for errors
+4. Use React DevTools to inspect components
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Server Development" icon="server" href="/dev/plugins/server">
+    Connect your UI to server-side logic
+  </Card>
+  <Card title="Best Practices" icon="check" href="/dev/plugins/best-practices">
+    Production-ready patterns
+  </Card>
+</CardGroup>

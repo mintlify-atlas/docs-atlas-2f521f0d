@@ -1,0 +1,386 @@
+---
+title: Configuration
+description: Configuration options and config.json structure for Mattermost server
+---
+
+Mattermost server configuration is managed through `config.json` or environment variables. The server supports hot-reloading of configuration changes without restart.
+
+## Configuration Sources
+
+Mattermost supports multiple configuration sources:
+
+1. **JSON File** - Default at `./config/config.json`
+2. **Environment Variables** - Prefixed with `MM_`
+3. **Database** - Store configuration in PostgreSQL
+
+### Environment Variable Override
+
+All configuration settings can be overridden using environment variables with the `MM_` prefix:
+
+<CodeGroup>
+```bash Service Settings
+# Override site URL
+export MM_SERVICESETTINGS_SITEURL="https://mattermost.example.com"
+
+# Override listen address
+export MM_SERVICESETTINGS_LISTENADDRESS=":8065"
+
+# Enable developer mode
+export MM_SERVICESETTINGS_ENABLEDEVELOPER=true
+```
+
+```bash Database Settings
+# PostgreSQL connection
+export MM_SQLSETTINGS_DRIVERNAME="postgres"
+export MM_SQLSETTINGS_DATASOURCE="postgres://mmuser:password@localhost/mattermost?sslmode=disable&connect_timeout=10&binary_parameters=yes"
+```
+
+```bash File Storage
+# Use S3 for file storage
+export MM_FILESETTINGS_DRIVERNAME="amazons3"
+export MM_FILESETTINGS_AMAZONS3BUCKET="mattermost-files"
+export MM_FILESETTINGS_AMAZONS3REGION="us-east-1"
+```
+</CodeGroup>
+
+## Core Configuration Sections
+
+### Service Settings
+
+Controls core server behavior:
+
+```json
+{
+  "ServiceSettings": {
+    "SiteURL": "http://localhost:8065",
+    "ListenAddress": ":8065",
+    "ConnectionSecurity": "",
+    "TLSCertFile": "",
+    "TLSKeyFile": "",
+    "UseLetsEncrypt": false,
+    "Forward80To443": false,
+    "ReadTimeout": 300,
+    "WriteTimeout": 300,
+    "IdleTimeout": 60,
+    "MaximumLoginAttempts": 10,
+    "EnableMultifactorAuthentication": true,
+    "EnforceMultifactorAuthentication": false,
+    "SessionLengthWebInHours": 720,
+    "SessionLengthMobileInHours": 720,
+    "SessionLengthSSOInHours": 720,
+    "SessionCacheInMinutes": 10,
+    "SessionIdleTimeoutInMinutes": 43200
+  }
+}
+```
+
+<Warning>
+  Always set `SiteURL` in production. This is required for email notifications, OAuth, and SAML.
+</Warning>
+
+### Database Settings
+
+Mattermost supports PostgreSQL (recommended for production):
+
+```json
+{
+  "SqlSettings": {
+    "DriverName": "postgres",
+    "DataSource": "postgres://mmuser:mostest@localhost/mattermost_test?sslmode=disable&connect_timeout=10&binary_parameters=yes",
+    "MaxIdleConns": 20,
+    "MaxOpenConns": 300,
+    "QueryTimeout": 30,
+    "DisableDatabaseSearch": false
+  }
+}
+```
+
+**Connection String Format:**
+```
+postgres://[username]:[password]@[host]:[port]/[database]?sslmode=[mode]&connect_timeout=10&binary_parameters=yes
+```
+
+**Key Parameters:**
+- `sslmode`: `disable`, `require`, `verify-ca`, `verify-full`
+- `connect_timeout`: Connection timeout in seconds (recommended: 10)
+- `binary_parameters=yes`: Enable binary encoding for better performance
+
+### File Storage Settings
+
+Configure local or S3-compatible storage:
+
+<CodeGroup>
+```json Local Storage
+{
+  "FileSettings": {
+    "DriverName": "local",
+    "Directory": "./data/",
+    "MaxFileSize": 104857600,
+    "EnablePublicLink": true,
+    "PublicLinkSalt": "<generate-random-salt>"
+  }
+}
+```
+
+```json Amazon S3
+{
+  "FileSettings": {
+    "DriverName": "amazons3",
+    "AmazonS3AccessKeyId": "your-access-key",
+    "AmazonS3SecretAccessKey": "your-secret-key",
+    "AmazonS3Bucket": "mattermost-files",
+    "AmazonS3Region": "us-east-1",
+    "AmazonS3Endpoint": "",
+    "AmazonS3SSL": true,
+    "AmazonS3SSE": false,
+    "AmazonS3Trace": false
+  }
+}
+```
+
+```json MinIO
+{
+  "FileSettings": {
+    "DriverName": "amazons3",
+    "AmazonS3AccessKeyId": "minioaccesskey",
+    "AmazonS3SecretAccessKey": "miniosecretkey",
+    "AmazonS3Bucket": "mattermost-test",
+    "AmazonS3Endpoint": "minio:9000",
+    "AmazonS3SSL": false
+  }
+}
+```
+</CodeGroup>
+
+### Email Settings
+
+```json
+{
+  "EmailSettings": {
+    "EnableSignUpWithEmail": true,
+    "EnableSignInWithEmail": true,
+    "EnableSignInWithUsername": true,
+    "SendEmailNotifications": true,
+    "RequireEmailVerification": false,
+    "FeedbackName": "Mattermost",
+    "FeedbackEmail": "support@example.com",
+    "ReplyToAddress": "support@example.com",
+    "SMTPUsername": "",
+    "SMTPPassword": "",
+    "SMTPServer": "localhost",
+    "SMTPPort": "10025",
+    "ConnectionSecurity": "",
+    "EnableSMTPAuth": false
+  }
+}
+```
+
+**SMTP Connection Security:**
+- `""` - No encryption (plain text)
+- `"TLS"` - TLS encryption
+- `"STARTTLS"` - Upgrade to TLS after connecting
+
+### Team Settings
+
+```json
+{
+  "TeamSettings": {
+    "SiteName": "Mattermost",
+    "MaxUsersPerTeam": 50,
+    "EnableTeamCreation": true,
+    "EnableUserCreation": true,
+    "RestrictCreationToDomains": "",
+    "RestrictTeamInvite": "all",
+    "RestrictPublicChannelCreation": "all",
+    "RestrictPrivateChannelCreation": "all"
+  }
+}
+```
+
+## Cluster Settings
+
+For High Availability deployments:
+
+```json
+{
+  "ClusterSettings": {
+    "Enable": true,
+    "ClusterName": "mm_dev_cluster",
+    "OverrideHostname": "",
+    "NetworkInterface": "",
+    "BindAddress": "",
+    "AdvertiseAddress": "",
+    "UseIPAddress": true,
+    "EnableGossipEncryption": true,
+    "EnableGossipCompression": true,
+    "GossipPort": 8074,
+    "ReadOnlyConfig": true
+  }
+}
+```
+
+**Gossip Protocol Ports:**
+- TCP/UDP `8074` - Cluster communication
+- TCP/UDP `8064` - Additional cluster traffic
+
+## Configuration Management
+
+### View Current Configuration
+
+```bash
+# Using mmctl
+mmctl config get
+
+# Get specific section
+mmctl config get SqlSettings
+
+# Get specific setting
+mmctl config get SqlSettings.DriverName
+```
+
+### Update Configuration
+
+```bash
+# Set a configuration value
+mmctl config set TeamSettings.MaxUsersPerTeam 100
+
+# Using environment variables
+export MM_TEAMSETTINGS_MAXUSERSPERTEAM=100
+```
+
+### Reload Configuration
+
+<Steps>
+  <Step title="Hot Reload">
+    Mattermost supports hot-reloading for most configuration changes:
+    
+    ```bash
+    # Send reload signal
+    mmctl config reload
+    
+    # Or via API
+    curl -X POST http://localhost:8065/api/v4/config/reload \
+      -H "Authorization: Bearer YOUR_TOKEN"
+    ```
+  </Step>
+  
+  <Step title="Verify Changes">
+    Check that configuration was reloaded:
+    
+    ```bash
+    mmctl config show
+    ```
+  </Step>
+  
+  <Step title="Restart if Required">
+    Some settings require a server restart:
+    - Database connection settings
+    - Listen address changes
+    - TLS certificate changes
+  </Step>
+</Steps>
+
+### Generate Default Configuration
+
+```bash
+# Generate production defaults
+cd server
+OUTPUT_CONFIG=/path/to/config.json go run -tags production ./scripts/config_generator
+```
+
+## Configuration Best Practices
+
+<Warning>
+  **Security Considerations:**
+  - Never commit `config.json` with secrets to version control
+  - Use environment variables for sensitive data in containerized deployments
+  - Rotate database passwords regularly
+  - Enable `ReadOnlyConfig` in cluster mode to prevent inconsistencies
+</Warning>
+
+### Environment-Specific Settings
+
+**Development:**
+```bash
+export MM_SERVICESETTINGS_ENABLEDEVELOPER=true
+export MM_SERVICESETTINGS_SITEURL="http://localhost:8065"
+export MM_LOGSETTINGS_CONSOLELEVEL="DEBUG"
+```
+
+**Production:**
+```bash
+export MM_SERVICESETTINGS_ENABLEDEVELOPER=false
+export MM_SERVICESETTINGS_SITEURL="https://mattermost.company.com"
+export MM_LOGSETTINGS_CONSOLELEVEL="INFO"
+export MM_SQLSETTINGS_DATASOURCE="postgres://mmuser:${DB_PASSWORD}@postgres-cluster/mattermost?sslmode=verify-full"
+```
+
+## Common Configuration Patterns
+
+### Reverse Proxy Setup
+
+When running behind nginx/Apache:
+
+```json
+{
+  "ServiceSettings": {
+    "SiteURL": "https://mattermost.example.com",
+    "ListenAddress": ":8065",
+    "ConnectionSecurity": "",
+    "TrustedProxyIPHeader": ["X-Forwarded-For", "X-Real-IP"],
+    "AllowCorsFrom": "https://mattermost.example.com",
+    "CorsExposedHeaders": "",
+    "CorsAllowCredentials": false
+  }
+}
+```
+
+### Database Connection Pooling
+
+For production workloads:
+
+```json
+{
+  "SqlSettings": {
+    "MaxIdleConns": 20,
+    "MaxOpenConns": 300,
+    "QueryTimeout": 30,
+    "ConnMaxLifetimeMilliseconds": 3600000,
+    "ConnMaxIdleTimeMilliseconds": 300000
+  }
+}
+```
+
+## Troubleshooting
+
+### Configuration Not Applied
+
+1. Check environment variable syntax:
+   ```bash
+   env | grep MM_
+   ```
+
+2. Verify configuration file syntax:
+   ```bash
+   # Validate JSON
+   jq . config/config.json
+   ```
+
+3. Check server logs:
+   ```bash
+   tail -f logs/mattermost.log | grep -i config
+   ```
+
+### Common Issues
+
+- **Database connection fails**: Check `DataSource` connection string format
+- **Email not sending**: Verify SMTP settings and test with `mmctl config test email`
+- **File uploads fail**: Check `Directory` permissions or S3 credentials
+- **Cluster nodes not connecting**: Verify `GossipPort` (8074) is open between nodes
+
+## Related Resources
+
+- [User Management](/admin/user-management)
+- [Security Configuration](/admin/security)
+- [Deployment Patterns](/admin/deployment)
+- [Monitoring](/admin/monitoring)

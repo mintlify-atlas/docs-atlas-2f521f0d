@@ -1,0 +1,583 @@
+---
+title: 'Plugins API'
+description: 'Upload, manage, and configure Mattermost plugins'
+---
+
+## Overview
+
+The Plugins API provides endpoints for managing Mattermost plugins, including uploading, activating, deactivating, and removing plugins.
+
+<Note>
+Plugins must be enabled in the server's configuration (`PluginSettings.Enable = true`).
+</Note>
+
+## Upload Plugin
+
+Upload a plugin package (.tar.gz file).
+
+```http
+POST /api/v4/plugins
+```
+
+### Request Body
+
+Multipart form data:
+
+<ParamField body="plugin" type="binary" required>
+  Plugin .tar.gz file to upload
+</ParamField>
+
+<ParamField body="force" type="string">
+  Set to `"true"` to overwrite existing plugin with same ID
+</ParamField>
+
+### Example Request
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:8065/api/v4/plugins \
+  -H 'Authorization: Bearer your-token' \
+  -F 'plugin=@myplugin.tar.gz' \
+  -F 'force=false'
+```
+
+```javascript JavaScript
+const formData = new FormData();
+formData.append('plugin', pluginFile, 'myplugin.tar.gz');
+formData.append('force', 'false');
+
+const response = await fetch('http://localhost:8065/api/v4/plugins', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer your-token'
+  },
+  body: formData
+});
+```
+</CodeGroup>
+
+### Response
+
+```json
+{
+  "status": "OK"
+}
+```
+
+<Note>
+Minimum server version: 4.4
+</Note>
+
+## Install Plugin from URL
+
+Install a plugin directly from a URL.
+
+```http
+POST /api/v4/plugins/install_from_url
+```
+
+### Query Parameters
+
+<ParamField query="plugin_download_url" type="string" required>
+  URL to download the plugin .tar.gz file
+</ParamField>
+
+<ParamField query="force" type="string">
+  Set to `"true"` to overwrite existing plugin
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST \
+  'http://localhost:8065/api/v4/plugins/install_from_url?plugin_download_url=https://example.com/plugin.tar.gz&force=false' \
+  -H 'Authorization: Bearer your-token'
+```
+
+<Note>
+Minimum server version: 5.14
+</Note>
+
+## Get Plugins
+
+Retrieve lists of active and inactive plugins.
+
+```http
+GET /api/v4/plugins
+```
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/plugins
+```
+
+### Response
+
+<ResponseField name="active" type="array">
+  Array of active plugin manifests
+</ResponseField>
+
+<ResponseField name="inactive" type="array">
+  Array of inactive plugin manifests
+</ResponseField>
+
+```json Response Example
+{
+  "active": [
+    {
+      "id": "com.mattermost.plugin-jira",
+      "name": "Jira",
+      "description": "Jira integration for Mattermost",
+      "version": "3.0.0",
+      "min_server_version": "5.37.0",
+      "server": {
+        "executables": {
+          "linux-amd64": "server/dist/plugin-linux-amd64",
+          "darwin-amd64": "server/dist/plugin-darwin-amd64",
+          "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+        }
+      },
+      "webapp": {
+        "bundle_path": "webapp/dist/main.js"
+      },
+      "settings_schema": {}
+    }
+  ],
+  "inactive": [
+    {
+      "id": "com.mattermost.plugin-todo",
+      "name": "Todo",
+      "version": "0.6.0"
+    }
+  ]
+}
+```
+
+## Get Webapp Plugins
+
+Get list of active webapp plugins (no authentication required).
+
+```http
+GET /api/v4/plugins/webapp
+```
+
+### Example Request
+
+```bash
+curl http://localhost:8065/api/v4/plugins/webapp
+```
+
+### Response
+
+Array of webapp plugin manifests with bundle paths.
+
+## Get Plugin Statuses
+
+Get status information for all plugins in the cluster.
+
+```http
+GET /api/v4/plugins/statuses
+```
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/plugins/statuses
+```
+
+### Response
+
+```json
+[
+  {
+    "plugin_id": "com.mattermost.plugin-jira",
+    "cluster_id": "node1",
+    "plugin_version": "3.0.0",
+    "state": 1
+  },
+  {
+    "plugin_id": "com.mattermost.plugin-jira",
+    "cluster_id": "node2",
+    "plugin_version": "3.0.0",
+    "state": 1
+  }
+]
+```
+
+<ResponseField name="state" type="integer">
+  Plugin state: `0` = Not running, `1` = Running, `2` = Failed to start
+</ResponseField>
+
+## Enable Plugin
+
+Activate a previously installed plugin.
+
+```http
+POST /api/v4/plugins/{plugin_id}/enable
+```
+
+### Path Parameters
+
+<ParamField path="plugin_id" type="string" required>
+  Plugin identifier (e.g., "com.mattermost.plugin-jira")
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/plugins/com.mattermost.plugin-jira/enable
+```
+
+### Response
+
+```json
+{
+  "status": "OK"
+}
+```
+
+## Disable Plugin
+
+Deactivate an active plugin.
+
+```http
+POST /api/v4/plugins/{plugin_id}/disable
+```
+
+### Path Parameters
+
+<ParamField path="plugin_id" type="string" required>
+  Plugin identifier
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/plugins/com.mattermost.plugin-jira/disable
+```
+
+## Remove Plugin
+
+Uninstall a plugin and delete all its files.
+
+```http
+DELETE /api/v4/plugins/{plugin_id}
+```
+
+### Path Parameters
+
+<ParamField path="plugin_id" type="string" required>
+  Plugin identifier
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X DELETE \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/plugins/com.mattermost.plugin-jira
+```
+
+<Warning>
+Removing a plugin deletes all plugin files. This action cannot be undone.
+</Warning>
+
+## Plugin Marketplace
+
+Manage plugins from the Mattermost Plugin Marketplace.
+
+### Get Marketplace Plugins
+
+Retrieve available plugins from the marketplace.
+
+```http
+GET /api/v4/plugins/marketplace
+```
+
+#### Query Parameters
+
+<ParamField query="page" type="integer">
+  Page number (not yet implemented)
+</ParamField>
+
+<ParamField query="per_page" type="integer">
+  Items per page (not yet implemented)
+</ParamField>
+
+<ParamField query="filter" type="string">
+  Filter plugins by ID, name, or description
+</ParamField>
+
+<ParamField query="server_version" type="string">
+  Filter by minimum server version (not yet implemented)
+</ParamField>
+
+<ParamField query="local_only" type="boolean">
+  Only retrieve locally installed plugins
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/plugins/marketplace?filter=jira'
+```
+
+#### Response
+
+```json
+[
+  {
+    "homepage_url": "https://github.com/mattermost/mattermost-plugin-jira",
+    "download_url": "https://plugins.releases.mattermost.com/release/mattermost-plugin-jira-v3.0.0.tar.gz",
+    "manifest": {
+      "id": "com.mattermost.plugin-jira",
+      "name": "Jira",
+      "description": "Jira integration for Mattermost",
+      "version": "3.0.0"
+    },
+    "installed_version": "2.4.0",
+    "icon_data": "base64-encoded-icon"
+  }
+]
+```
+
+<Note>
+Minimum server version: 5.16
+</Note>
+
+### Install Marketplace Plugin
+
+Install a plugin from the marketplace.
+
+```http
+POST /api/v4/plugins/marketplace
+```
+
+#### Request Body
+
+<ParamField body="id" type="string" required>
+  Plugin ID to install
+</ParamField>
+
+<ParamField body="version" type="string" required>
+  Plugin version to install
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/plugins/marketplace \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "id": "com.mattermost.plugin-jira",
+    "version": "3.0.0"
+  }'
+```
+
+#### Response
+
+Returns the installed plugin's manifest.
+
+### Check Marketplace Visit Status
+
+Check if an admin has visited the Plugin Marketplace.
+
+```http
+GET /api/v4/plugins/marketplace/first_admin_visit
+```
+
+<Note>
+Minimum server version: 5.33
+</Note>
+
+## Plugin Lifecycle
+
+Typical plugin lifecycle:
+
+1. **Upload** - Upload plugin package
+2. **Enable** - Activate the plugin
+3. **Configure** - Set plugin settings (via System Console)
+4. **Use** - Plugin is active and running
+5. **Update** - Upload new version (with force=true)
+6. **Disable** - Deactivate if needed
+7. **Remove** - Uninstall completely
+
+## Plugin Package Structure
+
+Plugin packages (.tar.gz) should contain:
+
+```
+myplugin/
+├── plugin.json          # Plugin manifest
+├── server/              # Server-side code (optional)
+│   └── dist/
+│       ├── plugin-linux-amd64
+│       ├── plugin-darwin-amd64
+│       └── plugin-windows-amd64.exe
+└── webapp/              # Webapp code (optional)
+    └── dist/
+        └── main.js
+```
+
+### Plugin Manifest (plugin.json)
+
+```json
+{
+  "id": "com.example.myplugin",
+  "name": "My Plugin",
+  "description": "A sample plugin",
+  "version": "1.0.0",
+  "min_server_version": "5.37.0",
+  "server": {
+    "executables": {
+      "linux-amd64": "server/dist/plugin-linux-amd64",
+      "darwin-amd64": "server/dist/plugin-darwin-amd64",
+      "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+    }
+  },
+  "webapp": {
+    "bundle_path": "webapp/dist/main.js"
+  },
+  "settings_schema": {
+    "settings": [
+      {
+        "key": "EnablePlugin",
+        "type": "bool",
+        "default": true
+      }
+    ]
+  }
+}
+```
+
+## Permissions
+
+All plugin management operations require:
+
+- `manage_system` permission
+- Plugins must be enabled in server configuration
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `400` | Invalid plugin package or parameters |
+| `401` | Not authenticated |
+| `403` | Insufficient permissions |
+| `404` | Plugin not found |
+| `413` | Plugin file too large |
+| `501` | Plugins not enabled on server |
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Test Before Deployment">
+    Always test plugins in a development environment before deploying to production.
+  </Accordion>
+  
+  <Accordion title="Use Semantic Versioning">
+    Follow semantic versioning (MAJOR.MINOR.PATCH) for plugin versions.
+  </Accordion>
+  
+  <Accordion title="Specify Minimum Server Version">
+    Always specify `min_server_version` to ensure compatibility.
+  </Accordion>
+  
+  <Accordion title="Monitor Plugin Performance">
+    Monitor plugin performance and resource usage in production.
+  </Accordion>
+  
+  <Accordion title="Document Configuration">
+    Provide clear documentation for plugin settings and configuration.
+  </Accordion>
+</AccordionGroup>
+
+## Example: Complete Plugin Installation
+
+```bash
+# 1. Upload plugin
+curl -X POST http://localhost:8065/api/v4/plugins \
+  -H 'Authorization: Bearer your-token' \
+  -F 'plugin=@myplugin.tar.gz'
+
+# 2. Enable plugin
+curl -X POST \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/plugins/com.example.myplugin/enable
+
+# 3. Verify plugin is active
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/plugins
+```
+
+## Plugin Development
+
+For developing plugins:
+
+### Server Plugin API
+
+Server plugins have access to:
+- Post/channel/user management APIs
+- Database access
+- HTTP client
+- KV store
+- Configuration hooks
+
+### Webapp Plugin API
+
+Webapp plugins can:
+- Register custom UI components
+- Add menu items
+- Override UI elements
+- Make API calls to server
+
+### Plugin Template
+
+Use the official plugin starter template:
+
+```bash
+git clone https://github.com/mattermost/mattermost-plugin-starter-template
+```
+
+## Troubleshooting
+
+### Plugin Won't Activate
+
+- Check server logs for errors
+- Verify `min_server_version` compatibility
+- Ensure executable has correct permissions (Linux/macOS)
+- Check plugin manifest is valid JSON
+
+### Plugin Not Appearing
+
+- Verify plugins are enabled in System Console
+- Check file was uploaded successfully
+- Restart Mattermost server
+- Review plugin logs
+
+### Performance Issues
+
+- Check plugin resource usage
+- Review plugin logs for errors
+- Disable and re-enable plugin
+- Consider plugin optimization
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Plugin Documentation" icon="book" href="https://developers.mattermost.com/integrate/plugins/">
+    Learn to develop Mattermost plugins
+  </Card>
+  <Card title="Plugin Marketplace" icon="store" href="https://mattermost.com/marketplace/">
+    Browse available plugins
+  </Card>
+</CardGroup>

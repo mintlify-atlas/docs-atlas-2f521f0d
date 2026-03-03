@@ -1,0 +1,623 @@
+---
+title: Plugin Manifest Reference
+description: Complete reference for the plugin.json manifest file structure and configuration options
+---
+
+The plugin manifest (`plugin.json` or `plugin.yaml`) defines metadata, configuration, and requirements for your Mattermost plugin.
+
+## Basic Structure
+
+```json
+{
+  "id": "com.example.myplugin",
+  "name": "My Plugin",
+  "description": "A plugin that does something useful",
+  "version": "1.0.0",
+  "min_server_version": "9.0.0",
+  "server": {
+    "executables": {
+      "linux-amd64": "server/dist/plugin-linux-amd64",
+      "darwin-amd64": "server/dist/plugin-darwin-amd64",
+      "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+    }
+  },
+  "webapp": {
+    "bundle_path": "webapp/dist/main.js"
+  },
+  "settings_schema": {
+    "settings": []
+  }
+}
+```
+
+## Core Fields
+
+<ParamField path="id" type="string" required>
+  Globally unique identifier for your plugin.
+  
+  **Requirements:**
+  - Minimum 3 characters, maximum 190 characters
+  - Must match regex: `^[a-zA-Z0-9-_\.]+$`
+  - Cannot be changed after release
+  
+  **Recommended format:** Reverse-DNS notation
+  
+  ```json
+  "id": "com.company.pluginname"
+  ```
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Human-readable name displayed in the System Console and Plugin Marketplace.
+  
+  ```json
+  "name": "GitHub Plugin"
+  ```
+</ParamField>
+
+<ParamField path="version" type="string" required>
+  Plugin version. Semantic versioning recommended.
+  
+  ```json
+  "version": "1.2.3"
+  ```
+  
+  Follow [semver.org](http://semver.org):
+  - `MAJOR.MINOR.PATCH`
+  - Increment MAJOR for breaking changes
+  - Increment MINOR for new features
+  - Increment PATCH for bug fixes
+</ParamField>
+
+<ParamField path="description" type="string">
+  Short description of what the plugin does.
+  
+  ```json
+  "description": "Integrates GitHub notifications and actions into Mattermost"
+  ```
+</ParamField>
+
+<ParamField path="min_server_version" type="string">
+  Minimum Mattermost server version required.
+  
+  ```json
+  "min_server_version": "9.0.0"
+  ```
+  
+  <Note>
+    Plugin won't activate on servers below this version.
+  </Note>
+</ParamField>
+
+## Metadata Fields
+
+<ParamField path="homepage_url" type="string">
+  URL to learn more about the plugin.
+  
+  ```json
+  "homepage_url": "https://github.com/company/mattermost-plugin-example"
+  ```
+</ParamField>
+
+<ParamField path="support_url" type="string">
+  URL where users can report issues.
+  
+  ```json
+  "support_url": "https://github.com/company/mattermost-plugin-example/issues"
+  ```
+</ParamField>
+
+<ParamField path="release_notes_url" type="string">
+  URL to release notes or changelog.
+  
+  ```json
+  "release_notes_url": "https://github.com/company/plugin/releases/v1.0.0"
+  ```
+</ParamField>
+
+<ParamField path="icon_path" type="string">
+  Path to plugin icon (SVG format) within the bundle.
+  
+  ```json
+  "icon_path": "assets/icon.svg"
+  ```
+  
+  **Requirements:**
+  - Must be SVG format (bitmap formats not supported)
+  - Relative to bundle root
+  - Displayed in Plugin Marketplace
+</ParamField>
+
+## Server Configuration
+
+<ParamField path="server" type="object">
+  Server-side plugin configuration.
+  
+  ### Multi-Platform Binaries (Recommended)
+  
+  ```json
+  "server": {
+    "executables": {
+      "linux-amd64": "server/dist/plugin-linux-amd64",
+      "linux-arm64": "server/dist/plugin-linux-arm64",
+      "darwin-amd64": "server/dist/plugin-darwin-amd64",
+      "darwin-arm64": "server/dist/plugin-darwin-arm64",
+      "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+    }
+  }
+  ```
+  
+  ### Single Binary (Legacy)
+  
+  ```json
+  "server": {
+    "executable": "server/dist/plugin-linux-amd64"
+  }
+  ```
+  
+  <Warning>
+    Windows executables must have `.exe` extension.
+  </Warning>
+  
+  **Supported platforms:**
+  - `linux-amd64` - Linux x86_64
+  - `linux-arm64` - Linux ARM64
+  - `darwin-amd64` - macOS Intel
+  - `darwin-arm64` - macOS Apple Silicon
+  - `windows-amd64` - Windows x86_64
+</ParamField>
+
+## Web App Configuration
+
+<ParamField path="webapp" type="object">
+  Web app plugin configuration.
+  
+  ```json
+  "webapp": {
+    "bundle_path": "webapp/dist/main.js"
+  }
+  ```
+  
+  <ParamField path="webapp.bundle_path" type="string" required>
+    Path to webpack bundle within plugin archive.
+    
+    - Relative to bundle root
+    - Must be a JavaScript file
+    - Loaded in browser as `<script>` tag
+  </ParamField>
+</ParamField>
+
+## Settings Schema
+
+<ParamField path="settings_schema" type="object">
+  Define configurable settings that appear in System Console.
+  
+  ```json
+  "settings_schema": {
+    "header": "Configure the plugin settings below.",
+    "footer": "Visit [documentation](https://example.com) for help.",
+    "settings": [
+      {
+        "key": "EnablePlugin",
+        "display_name": "Enable Plugin",
+        "type": "bool",
+        "help_text": "When true, the plugin is enabled.",
+        "default": false
+      },
+      {
+        "key": "APIKey",
+        "display_name": "API Key",
+        "type": "text",
+        "help_text": "Enter your API key",
+        "placeholder": "sk-...",
+        "secret": true
+      }
+    ]
+  }
+  ```
+</ParamField>
+
+### Setting Types
+
+<Tabs>
+  <Tab title="Bool">
+    Boolean toggle.
+    
+    ```json
+    {
+      "key": "EnableFeature",
+      "display_name": "Enable Feature",
+      "type": "bool",
+      "help_text": "Enable this feature",
+      "default": false
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Text">
+    Single-line text input.
+    
+    ```json
+    {
+      "key": "ServerURL",
+      "display_name": "Server URL",
+      "type": "text",
+      "help_text": "URL of the external server",
+      "placeholder": "https://api.example.com",
+      "default": ""
+    }
+    ```
+  </Tab>
+  
+  <Tab title="LongText">
+    Multi-line text area.
+    
+    ```json
+    {
+      "key": "WelcomeMessage",
+      "display_name": "Welcome Message",
+      "type": "longtext",
+      "help_text": "Message shown to new users",
+      "default": "Welcome to the team!"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Number">
+    Numeric input.
+    
+    ```json
+    {
+      "key": "MaxItems",
+      "display_name": "Maximum Items",
+      "type": "number",
+      "help_text": "Maximum number of items to display",
+      "default": 10
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Dropdown">
+    Select from predefined options.
+    
+    ```json
+    {
+      "key": "LogLevel",
+      "display_name": "Log Level",
+      "type": "dropdown",
+      "help_text": "Select logging level",
+      "default": "info",
+      "options": [
+        {"display_name": "Error", "value": "error"},
+        {"display_name": "Warning", "value": "warn"},
+        {"display_name": "Info", "value": "info"},
+        {"display_name": "Debug", "value": "debug"}
+      ]
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Radio">
+    Radio button selection.
+    
+    ```json
+    {
+      "key": "Mode",
+      "display_name": "Operating Mode",
+      "type": "radio",
+      "help_text": "Select mode",
+      "default": "standard",
+      "options": [
+        {"display_name": "Standard", "value": "standard"},
+        {"display_name": "Advanced", "value": "advanced"}
+      ]
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Generated">
+    Auto-generated secret value.
+    
+    ```json
+    {
+      "key": "WebhookSecret",
+      "display_name": "Webhook Secret",
+      "type": "generated",
+      "help_text": "Secret for validating webhooks",
+      "regenerate_help_text": "Generate a new secret",
+      "secret": true
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Username">
+    Username input with autocomplete.
+    
+    ```json
+    {
+      "key": "BotUsername",
+      "display_name": "Bot Username",
+      "type": "username",
+      "help_text": "Username of the bot account",
+      "placeholder": "@botname"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Custom">
+    Custom component (requires webapp implementation).
+    
+    ```json
+    {
+      "key": "CustomSetting",
+      "display_name": "Custom Setting",
+      "type": "custom",
+      "help_text": "Configure advanced options"
+    }
+    ```
+    
+    Register custom component:
+    ```typescript
+    registry.registerAdminConsoleCustomSetting(
+      'CustomSetting',
+      MyCustomComponent
+    );
+    ```
+  </Tab>
+</Tabs>
+
+### Setting Field Properties
+
+<ParamField path="settings[].key" type="string" required>
+  Configuration key (case-insensitive).
+</ParamField>
+
+<ParamField path="settings[].display_name" type="string" required>
+  Label shown in UI.
+</ParamField>
+
+<ParamField path="settings[].type" type="string" required>
+  Setting type: `bool`, `text`, `longtext`, `number`, `dropdown`, `radio`, `generated`, `username`, `custom`
+</ParamField>
+
+<ParamField path="settings[].help_text" type="string">
+  Help text shown below setting. Supports Markdown.
+</ParamField>
+
+<ParamField path="settings[].placeholder" type="string">
+  Placeholder text for input fields.
+</ParamField>
+
+<ParamField path="settings[].default" type="any">
+  Default value for the setting.
+</ParamField>
+
+<ParamField path="settings[].secret" type="boolean">
+  If `true`, value is sanitized in API responses and shown as `******` in UI.
+  
+  ```json
+  {
+    "key": "APIToken",
+    "type": "text",
+    "secret": true
+  }
+  ```
+</ParamField>
+
+<ParamField path="settings[].hosting" type="string">
+  Show setting only in specific environments: `cloud` or `on-prem`.
+  
+  ```json
+  {
+    "key": "CloudOnlySetting",
+    "hosting": "cloud"
+  }
+  ```
+</ParamField>
+
+### Setting Sections
+
+Organize settings into collapsible sections:
+
+```json
+"settings_schema": {
+  "sections": [
+    {
+      "key": "connection",
+      "title": "Connection Settings",
+      "subtitle": "Configure external service connection",
+      "header": "Enter credentials below:",
+      "footer": "Changes require plugin restart.",
+      "settings": [
+        {
+          "key": "ServerURL",
+          "display_name": "Server URL",
+          "type": "text"
+        },
+        {
+          "key": "APIKey",
+          "display_name": "API Key",
+          "type": "text",
+          "secret": true
+        }
+      ]
+    },
+    {
+      "key": "features",
+      "title": "Feature Flags",
+      "settings": [
+        {
+          "key": "EnableNotifications",
+          "display_name": "Enable Notifications",
+          "type": "bool"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Plugin Properties
+
+<ParamField path="props" type="object">
+  Arbitrary metadata for other plugins or integrations.
+  
+  ```json
+  "props": {
+    "support_packet": "Include diagnostic data in support packets",
+    "webhook_version": "2.0",
+    "custom_metadata": {
+      "feature": "value"
+    }
+  }
+  ```
+  
+  **Special properties:**
+  
+  - `support_packet` - Description shown in Support Packet UI
+</ParamField>
+
+## Loading Configuration
+
+Load settings in your plugin:
+
+```go
+type Configuration struct {
+    EnablePlugin bool
+    APIKey       string
+    ServerURL    string
+    MaxItems     int
+}
+
+func (p *Plugin) OnConfigurationChange() error {
+    var config Configuration
+    if err := p.API.LoadPluginConfiguration(&config); err != nil {
+        return err
+    }
+    
+    p.setConfiguration(&config)
+    return nil
+}
+```
+
+<Note>
+  Setting keys are case-insensitive when loading. `APIKey`, `apikey`, and `apiKey` all map to the same field.
+</Note>
+
+## Complete Example
+
+```json
+{
+  "id": "com.company.github",
+  "name": "GitHub Integration",
+  "description": "Integrates GitHub with Mattermost for notifications and actions",
+  "homepage_url": "https://github.com/company/mattermost-plugin-github",
+  "support_url": "https://github.com/company/mattermost-plugin-github/issues",
+  "release_notes_url": "https://github.com/company/mattermost-plugin-github/releases/v2.0.0",
+  "icon_path": "assets/github-icon.svg",
+  "version": "2.0.0",
+  "min_server_version": "9.0.0",
+  "server": {
+    "executables": {
+      "linux-amd64": "server/dist/plugin-linux-amd64",
+      "darwin-amd64": "server/dist/plugin-darwin-amd64",
+      "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+    }
+  },
+  "webapp": {
+    "bundle_path": "webapp/dist/main.js"
+  },
+  "settings_schema": {
+    "header": "Configure GitHub integration settings.",
+    "footer": "Visit our [documentation](https://github.com/company/plugin-github) for setup instructions.",
+    "sections": [
+      {
+        "key": "connection",
+        "title": "GitHub Connection",
+        "settings": [
+          {
+            "key": "GitHubURL",
+            "display_name": "GitHub URL",
+            "type": "text",
+            "help_text": "URL of GitHub instance (for Enterprise)",
+            "placeholder": "https://github.com",
+            "default": "https://github.com"
+          },
+          {
+            "key": "WebhookSecret",
+            "display_name": "Webhook Secret",
+            "type": "generated",
+            "help_text": "Secret for validating GitHub webhooks",
+            "regenerate_help_text": "Regenerate webhook secret",
+            "secret": true
+          }
+        ]
+      },
+      {
+        "key": "features",
+        "title": "Features",
+        "settings": [
+          {
+            "key": "EnableNotifications",
+            "display_name": "Enable Notifications",
+            "type": "bool",
+            "help_text": "Send notifications for GitHub events",
+            "default": true
+          },
+          {
+            "key": "NotificationChannel",
+            "display_name": "Notification Channel",
+            "type": "text",
+            "help_text": "Default channel for notifications",
+            "placeholder": "github-notifications"
+          }
+        ]
+      }
+    ]
+  },
+  "props": {
+    "support_packet": "Includes GitHub connection status and configuration"
+  }
+}
+```
+
+## YAML Format
+
+You can also use YAML format (`plugin.yaml`):
+
+```yaml
+id: com.company.github
+name: GitHub Integration
+description: Integrates GitHub with Mattermost
+version: 2.0.0
+min_server_version: 9.0.0
+
+server:
+  executables:
+    linux-amd64: server/dist/plugin-linux-amd64
+    darwin-amd64: server/dist/plugin-darwin-amd64
+    windows-amd64: server/dist/plugin-windows-amd64.exe
+
+webapp:
+  bundle_path: webapp/dist/main.js
+
+settings_schema:
+  header: Configure GitHub integration settings.
+  settings:
+    - key: EnablePlugin
+      display_name: Enable Plugin
+      type: bool
+      help_text: When true, the plugin is enabled
+      default: false
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/dev/plugins/quickstart">
+    Build your first plugin
+  </Card>
+  <Card title="Best Practices" icon="check" href="/dev/plugins/best-practices">
+    Plugin development patterns
+  </Card>
+</CardGroup>

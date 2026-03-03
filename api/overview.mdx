@@ -1,0 +1,204 @@
+---
+title: 'API Overview'
+description: 'Introduction to the Mattermost REST API v4'
+---
+
+## Introduction
+
+The Mattermost Web Services API enables Mattermost clients and third-party applications to interact with Mattermost servers. This reference covers the REST API version 4.
+
+## Base URL
+
+All API requests are made to:
+
+```
+http://your-mattermost-url/api/v4
+```
+
+For example:
+- Local development: `http://localhost:8065/api/v4`
+- Production: `https://mattermost.example.com/api/v4`
+
+## API Versioning
+
+The current API version is **v4**. The version is included in the URL path as shown above.
+
+All API endpoints follow the pattern: `{base-url}/api/v4/{resource}`
+
+## Request/Response Format
+
+### Content Type
+
+All requests and responses use `application/json` content type unless otherwise specified (e.g., file uploads use `multipart/form-data`).
+
+### Date/Time Format
+
+Timestamps are represented as Unix epoch time in milliseconds (int64).
+
+Example:
+```json
+{
+  "create_at": 1441983590000,
+  "update_at": 1441983591000
+}
+```
+
+## Rate Limiting
+
+The API implements rate limiting to prevent abuse. Rate limit information is included in response headers:
+
+| Header | Description |
+|--------|-------------|
+| `X-Ratelimit-Limit` | Maximum requests per second |
+| `X-Ratelimit-Remaining` | Requests remaining in current window |
+| `X-Ratelimit-Reset` | UTC epoch seconds until rate limit resets |
+
+### Example Headers
+
+```http
+X-Ratelimit-Limit: 10
+X-Ratelimit-Remaining: 9
+X-Ratelimit-Reset: 1441983590
+```
+
+### Rate Limit Exceeded
+
+When you exceed the rate limit, you'll receive a `429 Too Many Requests` response:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Date: Tue, 10 Sep 2015 11:20:28 GMT
+X-RateLimit-Limit: 10
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1
+
+limit exceeded
+```
+
+## Error Handling
+
+All errors return an appropriate HTTP status code with a JSON error object:
+
+```json
+{
+  "id": "the.error.id",
+  "message": "Something went wrong",
+  "request_id": "abc123",
+  "status_code": 400,
+  "is_oauth": false
+}
+```
+
+### Common HTTP Status Codes
+
+| Code | Description |
+|------|-------------|
+| `200` | Success |
+| `201` | Resource created successfully |
+| `400` | Bad Request - Invalid parameters |
+| `401` | Unauthorized - No access token provided |
+| `403` | Forbidden - Insufficient permissions |
+| `404` | Not Found - Resource doesn't exist |
+| `413` | Payload Too Large |
+| `429` | Too Many Requests - Rate limit exceeded |
+| `500` | Internal Server Error |
+| `501` | Not Implemented - Feature disabled |
+
+## Pagination
+
+Many list endpoints support pagination using query parameters:
+
+<ParamField query="page" type="integer" default="0">
+  The page number to retrieve
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="60">
+  Number of items per page (maximum: 200)
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/users?page=0&per_page=60'
+```
+
+<Note>
+The maximum value for `per_page` is 200. Requests exceeding this will be silently truncated to 200.
+</Note>
+
+## Special User ID
+
+When using endpoints that require a user ID, you can use the string `me` instead of an actual user ID to refer to the currently authenticated user.
+
+### Example
+
+```bash
+# Get current user's profile
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/users/me
+```
+
+## Official Drivers
+
+Official API drivers are available to simplify integration:
+
+### JavaScript/TypeScript
+
+- **NPM**: [@mattermost/client](https://www.npmjs.com/package/@mattermost/client)
+- **Source**: [GitHub Repository](https://github.com/mattermost/mattermost/tree/master/webapp/platform/client)
+
+### Golang
+
+- **Package**: [Mattermost Golang Driver](https://pkg.go.dev/github.com/mattermost/mattermost/server/public/model#Client4)
+
+## WebSocket API
+
+In addition to the REST API, Mattermost offers a WebSocket API for real-time events.
+
+### Connection
+
+Connect to: `ws://your-mattermost-url/api/v4/websocket`
+
+### Authentication
+
+WebSocket connections can be authenticated using:
+- Standard API authentication (cookie or Authorization header)
+- Authentication challenge after connection
+
+### WebSocket Events
+
+Common events include:
+- `posted` - New post created
+- `post_edited` - Post was edited
+- `post_deleted` - Post was deleted
+- `channel_created` - New channel created
+- `user_added` - User added to channel
+- `typing` - User is typing
+- `status_change` - User status changed
+
+## Community Support
+
+For questions and support:
+
+- [Join the Mattermost community server](https://community.mattermost.com)
+- Ask in the Developers channel
+- Contact: feedback@mattermost.com
+- [Report bugs](https://github.com/mattermost/mattermost/issues)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn how to authenticate API requests
+  </Card>
+  <Card title="Users API" icon="users" href="/api/users">
+    Manage users and user accounts
+  </Card>
+  <Card title="Teams API" icon="people-group" href="/api/teams">
+    Create and manage teams
+  </Card>
+  <Card title="Channels API" icon="hashtag" href="/api/channels">
+    Work with channels and channel members
+  </Card>
+</CardGroup>

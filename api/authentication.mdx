@@ -1,0 +1,288 @@
+---
+title: 'Authentication'
+description: 'Authenticate with the Mattermost API using session tokens, personal access tokens, or OAuth'
+---
+
+## Overview
+
+The Mattermost API supports multiple authentication methods:
+
+1. **Session Tokens** - Short-lived tokens obtained via login
+2. **Personal Access Tokens** - Long-lived tokens for integrations
+3. **OAuth 2.0** - For third-party applications
+
+## Session Token Authentication
+
+Session tokens are obtained by logging in with username/email and password.
+
+### Login Request
+
+<CodeGroup>
+```bash cURL
+curl -i -d '{"login_id":"user@example.com","password":"mypassword"}' \
+  http://localhost:8065/api/v4/users/login
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8065/api/v4/users/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    login_id: 'user@example.com',
+    password: 'mypassword'
+  })
+});
+
+const token = response.headers.get('Token');
+const user = await response.json();
+```
+</CodeGroup>
+
+### Request Body
+
+<ParamField body="login_id" type="string" required>
+  User's email, username, or AD/LDAP ID
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password
+</ParamField>
+
+<ParamField body="token" type="string">
+  MFA token if multi-factor authentication is enabled
+</ParamField>
+
+<ParamField body="device_id" type="string">
+  Device ID for mobile clients
+</ParamField>
+
+### Response
+
+Successful login returns a `201 Created` status with:
+
+**Headers:**
+```http
+HTTP/1.1 201 Created
+Token: ckh3t4knu3fzujt76o57f5jo4w
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "id": "abc123xyz",
+  "username": "john.doe",
+  "email": "user@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "roles": "system_user",
+  "locale": "en"
+}
+```
+
+### Using the Session Token
+
+Include the token in subsequent requests using either method:
+
+#### Authorization Header (Recommended)
+
+```bash
+curl -H 'Authorization: Bearer ckh3t4knu3fzujt76o57f5jo4w' \
+  http://localhost:8065/api/v4/users/me
+```
+
+#### Cookie
+
+```bash
+curl -H 'Cookie: MMAUTHTOKEN=ckh3t4knu3fzujt76o57f5jo4w' \
+  http://localhost:8065/api/v4/users/me
+```
+
+### Logout
+
+Revoke the current session:
+
+```bash
+curl -X POST \
+  -H 'Authorization: Bearer ckh3t4knu3fzujt76o57f5jo4w' \
+  http://localhost:8065/api/v4/users/logout
+```
+
+## Personal Access Tokens
+
+Personal access tokens are long-lived tokens ideal for integrations and bots. They remain valid until manually revoked.
+
+### Creating a Personal Access Token
+
+1. Navigate to **Account Settings > Security > Personal Access Tokens**
+2. Click **Create New Token**
+3. Enter a description and click **Save**
+4. Copy the token immediately (it won't be shown again)
+
+### Using Personal Access Tokens
+
+Use them exactly like session tokens with the Authorization header:
+
+```bash
+curl -H 'Authorization: Bearer 9xuqwrwgstrb3mzrxb83nb357a' \
+  http://localhost:8065/api/v4/users/me
+```
+
+<Note>
+Personal access tokens don't expire but can be revoked by the user or system admin at any time.
+</Note>
+
+## OAuth 2.0
+
+Mattermost can act as an OAuth 2.0 service provider for third-party applications.
+
+### OAuth Flow
+
+1. **Register your application** in Mattermost
+2. **Redirect users** to authorization URL
+3. **Receive authorization code** via callback
+4. **Exchange code** for access token
+5. **Use access token** for API requests
+
+### Authorization URL
+
+```
+GET /oauth/authorize?response_type=code&client_id={client_id}&redirect_uri={redirect_uri}&state={state}
+```
+
+<ParamField query="response_type" type="string" required>
+  Must be `code` for authorization code flow
+</ParamField>
+
+<ParamField query="client_id" type="string" required>
+  Your application's client ID
+</ParamField>
+
+<ParamField query="redirect_uri" type="string" required>
+  URL to redirect to after authorization
+</ParamField>
+
+<ParamField query="state" type="string" required>
+  Random string to prevent CSRF attacks
+</ParamField>
+
+### Token Exchange
+
+Exchange the authorization code for an access token:
+
+```bash
+curl -X POST http://localhost:8065/oauth/access_token \
+  -d grant_type=authorization_code \
+  -d code={authorization_code} \
+  -d client_id={client_id} \
+  -d client_secret={client_secret} \
+  -d redirect_uri={redirect_uri}
+```
+
+### Response
+
+```json
+{
+  "access_token": "xoxp-access-token",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "refresh_token": "xoxp-refresh-token"
+}
+```
+
+## Windows Authentication (cURL)
+
+<Warning>
+On Windows, cURL requires different quote escaping:
+</Warning>
+
+```bash Windows
+curl -i -d "{\"login_id\":\"user@example.com\",\"password\":\"mypassword\"}" \
+  http://localhost:8065/api/v4/users/login
+```
+
+## Authentication Errors
+
+### 401 Unauthorized
+
+No valid authentication token provided:
+
+```json
+{
+  "id": "api.context.invalid_token.error",
+  "message": "Invalid or missing token",
+  "status_code": 401
+}
+```
+
+### 403 Forbidden
+
+Valid token but insufficient permissions:
+
+```json
+{
+  "id": "api.context.permissions.error",
+  "message": "You do not have the appropriate permissions",
+  "status_code": 403
+}
+```
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use HTTPS in Production">
+    Always use HTTPS (not HTTP) when making API requests in production to prevent token interception.
+  </Accordion>
+  
+  <Accordion title="Store Tokens Securely">
+    Never commit tokens to version control. Use environment variables or secure secret management.
+  </Accordion>
+  
+  <Accordion title="Rotate Tokens Regularly">
+    Periodically regenerate personal access tokens and update your integrations.
+  </Accordion>
+  
+  <Accordion title="Use Minimal Permissions">
+    Create bot accounts with only the permissions they need to function.
+  </Accordion>
+</AccordionGroup>
+
+## Example: Complete Authentication Flow
+
+```javascript
+// 1. Login and get token
+const loginResponse = await fetch('http://localhost:8065/api/v4/users/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    login_id: 'user@example.com',
+    password: 'mypassword'
+  })
+});
+
+const token = loginResponse.headers.get('Token');
+
+// 2. Use token for authenticated requests
+const meResponse = await fetch('http://localhost:8065/api/v4/users/me', {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+
+const currentUser = await meResponse.json();
+
+// 3. Logout when done
+await fetch('http://localhost:8065/api/v4/users/logout', {
+  method: 'POST',
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Users API" icon="user" href="/api/users">
+    Manage user accounts and profiles
+  </Card>
+  <Card title="Teams API" icon="users" href="/api/teams">
+    Create and manage teams
+  </Card>
+</CardGroup>

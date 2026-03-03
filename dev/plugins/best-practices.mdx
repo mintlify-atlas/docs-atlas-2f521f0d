@@ -1,0 +1,771 @@
+---
+title: Plugin Development Best Practices
+description: Production-ready patterns and recommendations for building reliable Mattermost plugins
+---
+
+Follow these best practices to build robust, maintainable, and performant Mattermost plugins.
+
+## Architecture
+
+### Separate Concerns
+
+Organize your plugin code into clear layers:
+
+```
+plugin/
+├── server/
+│   ├── plugin.go           # Main plugin struct and lifecycle
+│   ├── api.go              # HTTP handlers
+│   ├── hooks.go            # Hook implementations
+│   ├── command.go          # Slash command logic
+│   ├── configuration.go    # Config management
+│   ├── store/              # Data persistence
+│   └── services/           # Business logic
+```
+
+### Configuration Management
+
+Implement thread-safe configuration handling:
+
+```go
+type Plugin struct {
+    plugin.MattermostPlugin
+    
+    configurationLock sync.RWMutex
+    configuration     *configuration
+}
+
+type configuration struct {
+    APIKey    string
+    Enabled   bool
+    ServerURL string
+}
+
+func (p *Plugin) getConfiguration() *configuration {
+    p.configurationLock.RLock()
+    defer p.configurationLock.RUnlock()
+    
+    if p.configuration == nil {
+        return &configuration{}
+    }
+    return p.configuration
+}
+
+func (p *Plugin) setConfiguration(config *configuration) {
+    p.configurationLock.Lock()
+    defer p.configurationLock.Unlock()
+    p.configuration = config
+}
+
+func (p *Plugin) OnConfigurationChange() error {
+    var config configuration
+    if err := p.API.LoadPluginConfiguration(&config); err != nil {
+        return fmt.Errorf("failed to load configuration: %w", err)
+    }
+    
+    // Validate configuration
+    if config.Enabled && config.APIKey == "" {
+        return errors.New("API key is required when plugin is enabled")
+    }
+    
+    p.setConfiguration(&config)
+    return nil
+}
+```
+
+## Error Handling
+
+### Always Check Errors
+
+Never ignore errors from API calls:
+
+```go
+// Bad
+user, _ := p.API.GetUser(userID)
+user.Email = "new@email.com"
+
+// Good
+user, err := p.API.GetUser(userID)
+if err != nil {
+    p.API.LogError("Failed to get user",
+        "user_id", userID,
+        "error", err.Error(),
+    )
+    return fmt.Errorf("failed to get user: %w", err)
+}
+```
+
+### Provide Context
+
+Use error wrapping to maintain context:
+
+```go
+func (p *Plugin) processWebhook(data []byte) error {
+    var webhook Webhook
+    if err := json.Unmarshal(data, &webhook); err != nil {
+        return fmt.Errorf("failed to unmarshal webhook: %w", err)
+    }
+    
+    if err := p.handleWebhook(&webhook); err != nil {
+        return fmt.Errorf("failed to handle webhook: %w", err)
+    }
+    
+    return nil
+}
+```
+
+### User-Friendly Error Messages
+
+```go
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+    config := p.getConfiguration()
+    if !config.Enabled {
+        return &model.CommandResponse{
+            ResponseType: model.CommandResponseTypeEphemeral,
+            Text:         "This plugin is currently disabled. Please contact your system administrator.",
+        }, nil
+    }
+    
+    // Command logic...
+}
+```
+
+## Logging
+
+### Use Structured Logging
+
+Always use key-value pairs:
+
+```go
+// Bad
+p.API.LogError("Error: " + err.Error())
+
+// Good
+p.API.LogError("Failed to create post",
+    "channel_id", channelID,
+    "user_id", userID,
+    "error", err.Error(),
+)
+```
+
+### Appropriate Log Levels
+
+```go
+// Debug - Detailed information for debugging
+p.API.LogDebug("Processing webhook",
+    "type", webhook.Type,
+    "repository", webhook.Repo,
+)
+
+// Info - General informational messages
+p.API.LogInfo("User connected account",
+    "user_id", userID,
+    "service", "github",
+)
+
+// Warn - Unexpected but handled situations
+p.API.LogWarn("Rate limit approaching",
+    "remaining", remaining,
+    "reset_time", resetTime,
+)
+
+// Error - Errors that affect functionality
+p.API.LogError("Failed to sync data",
+    "user_id", userID,
+    "error", err.Error(),
+)
+```
+
+### Don't Log Sensitive Data
+
+```go
+// Bad
+p.API.LogInfo("User logged in", "password", password)
+
+// Good
+p.API.LogInfo("User logged in",
+    "user_id", userID,
+    "ip_address", ipAddress,
+)
+```
+
+## Concurrency
+
+### Manage Goroutines Carefully
+
+Always clean up background work on deactivation:
+
+```go
+type Plugin struct {
+    plugin.MattermostPlugin
+    
+    stopChan chan struct{}
+    stopped  bool
+    stopLock sync.Mutex
+}
+
+func (p *Plugin) OnActivate() error {
+    p.stopChan = make(chan struct{})
+    
+    go p.backgroundWorker()
+    
+    return nil
+}
+
+func (p *Plugin) OnDeactivate() error {
+    p.stopLock.Lock()
+    defer p.stopLock.Unlock()
+    
+    if !p.stopped {
+        close(p.stopChan)
+        p.stopped = true
+    }
+    
+    return nil
+}
+
+func (p *Plugin) backgroundWorker() {
+    ticker := time.NewTicker(5 * time.Minute)
+    defer ticker.Stop()
+    
+    for {
+        select {
+        case <-ticker.C:
+            p.doPeriodicWork()
+        case <-p.stopChan:
+            return
+        }
+    }
+}
+```
+
+### Use Context for Cancellation
+
+```go
+func (p *Plugin) OnDeactivate() error {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    
+    if err := p.shutdown(ctx); err != nil {
+        p.API.LogError("Failed to shutdown cleanly", "error", err.Error())
+    }
+    
+    return nil
+}
+```
+
+### Protect Shared State
+
+```go
+type Plugin struct {
+    plugin.MattermostPlugin
+    
+    cacheLock sync.RWMutex
+    cache     map[string]*CachedData
+}
+
+func (p *Plugin) getCached(key string) *CachedData {
+    p.cacheLock.RLock()
+    defer p.cacheLock.RUnlock()
+    return p.cache[key]
+}
+
+func (p *Plugin) setCached(key string, data *CachedData) {
+    p.cacheLock.Lock()
+    defer p.cacheLock.Unlock()
+    p.cache[key] = data
+}
+```
+
+## Data Storage
+
+### Use KV Store Wisely
+
+```go
+// Store with expiration for temporary data
+err := p.API.KVSetWithExpiry("session_"+sessionID, data, 3600)
+
+// Use atomic operations for counters
+for {
+    oldValue, _ := p.API.KVGet("counter")
+    newValue := incrementCounter(oldValue)
+    
+    success, err := p.API.KVCompareAndSet("counter", oldValue, newValue)
+    if err != nil {
+        return err
+    }
+    if success {
+        break
+    }
+    // Retry on conflict
+}
+
+// Namespace your keys
+const keyPrefix = "myplugin_"
+
+func (p *Plugin) getUserData(userID string) ([]byte, error) {
+    return p.API.KVGet(keyPrefix + "user_" + userID)
+}
+```
+
+### Handle Large Data Sets
+
+```go
+// Use pagination for KV list operations
+func (p *Plugin) getAllUsers() ([]string, error) {
+    var allKeys []string
+    page := 0
+    perPage := 100
+    
+    for {
+        keys, err := p.API.KVList(page, perPage)
+        if err != nil {
+            return nil, err
+        }
+        
+        if len(keys) == 0 {
+            break
+        }
+        
+        allKeys = append(allKeys, keys...)
+        
+        if len(keys) < perPage {
+            break
+        }
+        
+        page++
+    }
+    
+    return allKeys, nil
+}
+```
+
+## Performance
+
+### Avoid Blocking Operations in Hooks
+
+```go
+// Bad - blocks message posting
+func (p *Plugin) MessageHasBeenPosted(c *plugin.Context, post *model.Post) {
+    result := p.callSlowExternalAPI(post.Message) // Takes 2 seconds
+    p.processResult(result)
+}
+
+// Good - process asynchronously
+func (p *Plugin) MessageHasBeenPosted(c *plugin.Context, post *model.Post) {
+    go func() {
+        result := p.callSlowExternalAPI(post.Message)
+        p.processResult(result)
+    }()
+}
+```
+
+### Cache Frequently Accessed Data
+
+```go
+type Plugin struct {
+    plugin.MattermostPlugin
+    
+    userCache     map[string]*model.User
+    userCacheLock sync.RWMutex
+}
+
+func (p *Plugin) getUserCached(userID string) (*model.User, error) {
+    p.userCacheLock.RLock()
+    if user, ok := p.userCache[userID]; ok {
+        p.userCacheLock.RUnlock()
+        return user, nil
+    }
+    p.userCacheLock.RUnlock()
+    
+    user, err := p.API.GetUser(userID)
+    if err != nil {
+        return nil, err
+    }
+    
+    p.userCacheLock.Lock()
+    p.userCache[userID] = user
+    p.userCacheLock.Unlock()
+    
+    return user, nil
+}
+```
+
+### Debounce Frequent Events
+
+```go
+type Debouncer struct {
+    timer *time.Timer
+    mu    sync.Mutex
+}
+
+func (d *Debouncer) Debounce(delay time.Duration, fn func()) {
+    d.mu.Lock()
+    defer d.mu.Unlock()
+    
+    if d.timer != nil {
+        d.timer.Stop()
+    }
+    
+    d.timer = time.AfterFunc(delay, fn)
+}
+```
+
+## Security
+
+### Validate Input
+
+```go
+func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
+    userID := r.Header.Get("Mattermost-User-Id")
+    if userID == "" {
+        http.Error(w, "Unauthorized", http.StatusUnauthorized)
+        return
+    }
+    
+    // Validate webhook signature
+    signature := r.Header.Get("X-Hub-Signature")
+    if !p.validateSignature(r.Body, signature) {
+        http.Error(w, "Invalid signature", http.StatusForbidden)
+        return
+    }
+    
+    // Sanitize user input
+    var input UserInput
+    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+        http.Error(w, "Invalid input", http.StatusBadRequest)
+        return
+    }
+    
+    if err := p.validateInput(&input); err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
+}
+```
+
+### Check Permissions
+
+```go
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+    // Check if user has permission
+    if !p.API.HasPermissionToChannel(args.UserId, args.ChannelId, model.PermissionCreatePost) {
+        return &model.CommandResponse{
+            Text: "You don't have permission to use this command in this channel.",
+        }, nil
+    }
+    
+    // Check system admin for sensitive operations
+    if !p.API.HasPermissionTo(args.UserId, model.PermissionManageSystem) {
+        return &model.CommandResponse{
+            Text: "This command requires system admin permissions.",
+        }, nil
+    }
+}
+```
+
+### Protect Secrets
+
+```go
+// Mark sensitive settings as secret in manifest
+{
+  "key": "APIKey",
+  "type": "text",
+  "secret": true
+}
+
+// Don't log secrets
+config := p.getConfiguration()
+p.API.LogInfo("Configuration loaded",
+    "server_url", config.ServerURL,
+    // Don't log: "api_key", config.APIKey
+)
+```
+
+## Testing
+
+### Use Plugin Testify
+
+```go
+import (
+    "testing"
+    "github.com/stretchr/testify/assert"
+    "github.com/mattermost/mattermost/server/public/plugin/plugintest"
+)
+
+func TestMessageHasBeenPosted(t *testing.T) {
+    api := &plugintest.API{}
+    defer api.AssertExpectations(t)
+    
+    // Mock API calls
+    api.On("GetUser", "user123").Return(&model.User{
+        Id:       "user123",
+        Username: "testuser",
+    }, nil)
+    
+    api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{}, nil)
+    
+    p := &Plugin{}
+    p.SetAPI(api)
+    
+    // Test the hook
+    post := &model.Post{
+        UserId:  "user123",
+        Message: "test message",
+    }
+    
+    p.MessageHasBeenPosted(nil, post)
+}
+```
+
+### Test Configuration
+
+```go
+func TestOnConfigurationChange(t *testing.T) {
+    tests := []struct {
+        name        string
+        config      map[string]interface{}
+        expectError bool
+    }{
+        {
+            name: "valid configuration",
+            config: map[string]interface{}{
+                "enabled": true,
+                "apikey":  "test-key",
+            },
+            expectError: false,
+        },
+        {
+            name: "missing API key",
+            config: map[string]interface{}{
+                "enabled": true,
+            },
+            expectError: true,
+        },
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            api := &plugintest.API{}
+            api.On("LoadPluginConfiguration", mock.AnythingOfType("*main.configuration")).Return(nil)
+            
+            p := &Plugin{}
+            p.SetAPI(api)
+            
+            err := p.OnConfigurationChange()
+            if tt.expectError {
+                assert.Error(t, err)
+            } else {
+                assert.NoError(t, err)
+            }
+        })
+    }
+}
+```
+
+## Web App Best Practices
+
+### Optimize Bundle Size
+
+```javascript
+// Mark dependencies as external
+externals: {
+    react: 'React',
+    redux: 'Redux',
+    'react-redux': 'ReactRedux',
+    'react-router-dom': 'ReactRouterDom',
+}
+
+// Use code splitting for large components
+const HeavyComponent = React.lazy(() => import('./HeavyComponent'));
+```
+
+### Handle Errors Gracefully
+
+```typescript
+const MyComponent = () => {
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
+    
+    const fetchData = async () => {
+        setLoading(true);
+        setError(null);
+        
+        try {
+            const response = await fetch('/plugins/myplugin/api/data');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const data = await response.json();
+            // Handle data
+        } catch (err) {
+            setError(err.message);
+            console.error('Failed to fetch data:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    if (error) {
+        return <div className="error">Error: {error}</div>;
+    }
+    
+    // Component JSX
+};
+```
+
+## Versioning and Updates
+
+### Semantic Versioning
+
+- **MAJOR** (1.0.0 → 2.0.0): Breaking changes
+- **MINOR** (1.0.0 → 1.1.0): New features, backward compatible
+- **PATCH** (1.0.0 → 1.0.1): Bug fixes
+
+### Migration Strategy
+
+```go
+const (
+    ConfigVersion = "2"
+)
+
+func (p *Plugin) OnActivate() error {
+    version, _ := p.API.KVGet("config_version")
+    
+    if string(version) != ConfigVersion {
+        if err := p.migrateData(string(version), ConfigVersion); err != nil {
+            return fmt.Errorf("migration failed: %w", err)
+        }
+        p.API.KVSet("config_version", []byte(ConfigVersion))
+    }
+    
+    return nil
+}
+
+func (p *Plugin) migrateData(from, to string) error {
+    switch from {
+    case "1":
+        // Migrate from v1 to v2
+        return p.migrateV1ToV2()
+    default:
+        // Fresh install
+        return nil
+    }
+}
+```
+
+## Documentation
+
+### README Template
+
+Include in your plugin repository:
+
+```markdown
+# Plugin Name
+
+Brief description of what the plugin does.
+
+## Features
+
+- Feature 1
+- Feature 2
+
+## Installation
+
+1. Download from releases
+2. Upload to System Console
+3. Configure settings
+
+## Configuration
+
+### Setting 1
+Description of setting 1
+
+### Setting 2  
+Description of setting 2
+
+## Usage
+
+How to use the plugin features.
+
+## Development
+
+How to build and develop the plugin.
+
+## Support
+
+Where to get help.
+```
+
+### Changelog
+
+Maintain a CHANGELOG.md:
+
+```markdown
+# Changelog
+
+## [2.0.0] - 2024-01-15
+
+### Breaking Changes
+- Changed API endpoint structure
+
+### Added
+- New notification types
+- Dark mode support
+
+### Fixed
+- Memory leak in background worker
+```
+
+## Summary Checklist
+
+<Accordion title="Code Quality">
+  - [ ] Proper error handling throughout
+  - [ ] Structured logging with context
+  - [ ] Thread-safe configuration management
+  - [ ] Input validation on all endpoints
+  - [ ] Permission checks for sensitive operations
+</Accordion>
+
+<Accordion title="Performance">
+  - [ ] Non-blocking hook implementations
+  - [ ] Efficient data caching where appropriate
+  - [ ] Pagination for large data sets
+  - [ ] Debouncing for frequent events
+  - [ ] Optimized web app bundle size
+</Accordion>
+
+<Accordion title="Reliability">
+  - [ ] Graceful shutdown on deactivation
+  - [ ] Proper goroutine lifecycle management
+  - [ ] Atomic operations for shared state
+  - [ ] Comprehensive error handling
+  - [ ] Data migration for version upgrades
+</Accordion>
+
+<Accordion title="Security">
+  - [ ] Input validation and sanitization
+  - [ ] Permission checks
+  - [ ] Secrets marked as sensitive
+  - [ ] Webhook signature verification
+  - [ ] No sensitive data in logs
+</Accordion>
+
+<Accordion title="Testing & Documentation">
+  - [ ] Unit tests with plugin testify
+  - [ ] Integration tests
+  - [ ] README with setup instructions
+  - [ ] CHANGELOG maintained
+  - [ ] Semantic versioning followed
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Plugin Overview" icon="book" href="/dev/plugins/overview">
+    Learn about plugin architecture
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/dev/plugins/quickstart">
+    Build your first plugin
+  </Card>
+</CardGroup>

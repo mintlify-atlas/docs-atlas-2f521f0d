@@ -1,0 +1,385 @@
+---
+title: Authentication
+description: Configure authentication and manage credentials in mmctl
+---
+
+## Overview
+
+mmctl requires authentication to communicate with your Mattermost server. This guide covers authentication methods, credential management, and security best practices.
+
+## Authentication Methods
+
+mmctl supports three authentication methods:
+
+1. **Username and Password** - Interactive login with MFA support
+2. **Personal Access Token** - Token-based authentication for automation
+3. **Local Mode** - Direct socket communication (requires server access)
+
+## Initial Login
+
+### Interactive Login
+
+The simplest way to authenticate is using the interactive login:
+
+```bash
+mmctl auth login https://mattermost.example.com
+```
+
+You'll be prompted for:
+- Connection name (identifier for this server)
+- Username
+- Password
+- MFA token (if MFA is enabled)
+
+### Login with Flags
+
+Provide credentials directly via command-line flags:
+
+```bash
+mmctl auth login https://mattermost.example.com \
+  --name production \
+  --username admin \
+  --password-file /path/to/password.txt
+```
+
+<Warning>
+  Avoid using `--password` flag directly as it exposes your password in shell history. Always use `--password-file` instead.
+</Warning>
+
+### Login with MFA
+
+For accounts with multi-factor authentication enabled:
+
+```bash
+mmctl auth login https://mattermost.example.com \
+  --name production \
+  --username admin \
+  --password-file password.txt \
+  --mfa-token 123456
+```
+
+### Login with Access Token
+
+Use a personal access token for automation and CI/CD:
+
+```bash
+mmctl auth login https://mattermost.example.com \
+  --name production \
+  --access-token-file /path/to/token.txt
+```
+
+<Info>
+  Create personal access tokens in Mattermost under **Account Settings > Security > Personal Access Tokens**.
+</Info>
+
+## Managing Credentials
+
+### List Saved Credentials
+
+View all stored server credentials:
+
+```bash
+mmctl auth list
+```
+
+Output:
+```
+    | Active | Name       | Username | InstanceURL                     |
+    |--------|------------|----------|---------------------------------|
+    |      * | production | admin    | https://mattermost.example.com  |
+    |        | staging    | admin    | https://staging.example.com     |
+```
+
+### View Current Credentials
+
+Display the currently active credentials:
+
+```bash
+mmctl auth current
+```
+
+Output:
+```
+found credentials for "production": "admin@https://mattermost.example.com"
+```
+
+### Switch Between Servers
+
+Set a different server as active:
+
+```bash
+mmctl auth set staging
+```
+
+All subsequent commands will use the "staging" credentials.
+
+### Renew Credentials
+
+Refresh expired authentication tokens:
+
+```bash
+# Renew with password
+mmctl auth renew production --password-file password.txt
+
+# Renew with access token
+mmctl auth renew production --access-token-file token.txt
+
+# Renew with MFA
+mmctl auth renew production --password-file password.txt --mfa-token 123456
+```
+
+### Delete Credentials
+
+Remove stored credentials for a server:
+
+```bash
+mmctl auth delete staging
+```
+
+### Clear All Credentials
+
+Remove all stored credentials:
+
+```bash
+mmctl auth clean
+```
+
+## Local Mode Authentication
+
+Local mode bypasses network authentication by using a Unix socket:
+
+```bash
+mmctl --local user list
+```
+
+### Requirements for Local Mode
+
+- Direct access to the Mattermost server
+- Mattermost running with local mode enabled
+- Proper file permissions on the socket
+
+### Default Socket Path
+
+- **Linux**: `/var/tmp/mattermost_local.socket`
+- **Custom path**: Configured via `MM_LOCALSOCKETPATH` or `--local-socket-path`
+
+### Using Custom Socket Path
+
+```bash
+mmctl --local --local-socket-path /custom/path/mattermost.socket user list
+```
+
+## Security Best Practices
+
+### Password Files
+
+Store passwords in secure files:
+
+```bash
+# Create password file with restricted permissions
+echo "MySecurePassword" > ~/.mmctl/password.txt
+chmod 600 ~/.mmctl/password.txt
+
+# Use in login
+mmctl auth login https://mattermost.example.com \
+  --name production \
+  --username admin \
+  --password-file ~/.mmctl/password.txt
+```
+
+### Access Token Files
+
+Store tokens securely:
+
+```bash
+# Create token file with restricted permissions
+echo "your-access-token" > ~/.mmctl/token.txt
+chmod 600 ~/.mmctl/token.txt
+
+# Use in login
+mmctl auth login https://mattermost.example.com \
+  --name production \
+  --access-token-file ~/.mmctl/token.txt
+```
+
+### Credential Storage
+
+mmctl stores credentials in:
+- **Linux/macOS**: `~/.mmctl/config`
+- **Windows**: `%USERPROFILE%\.mmctl\config`
+
+Protect this file:
+
+```bash
+chmod 600 ~/.mmctl/config
+```
+
+### TLS Configuration
+
+#### Self-Signed Certificates
+
+For servers with self-signed certificates:
+
+```bash
+mmctl --insecure-sha1-intermediate auth login https://mattermost.example.com
+```
+
+#### Older TLS Versions
+
+To allow TLS 1.0 and 1.1 (not recommended):
+
+```bash
+mmctl --insecure-tls-version auth login https://mattermost.example.com
+```
+
+<Warning>
+  Only use insecure TLS options for testing environments or with certificates you control and trust.
+</Warning>
+
+## Authentication Examples
+
+### Example 1: Production Setup with Token
+
+```bash
+# Create token file securely
+echo "prod-token-abc123" > ~/.mmctl/prod-token.txt
+chmod 600 ~/.mmctl/prod-token.txt
+
+# Login
+mmctl auth login https://mattermost.company.com \
+  --name production \
+  --access-token-file ~/.mmctl/prod-token.txt
+
+# Verify
+mmctl auth current
+```
+
+### Example 2: Multiple Environments
+
+```bash
+# Add production
+mmctl auth login https://prod.example.com \
+  --name prod \
+  --access-token-file ~/.mmctl/prod-token.txt
+
+# Add staging
+mmctl auth login https://staging.example.com \
+  --name staging \
+  --access-token-file ~/.mmctl/staging-token.txt
+
+# Add development
+mmctl auth login https://dev.example.com \
+  --name dev \
+  --username dev-admin \
+  --password-file ~/.mmctl/dev-password.txt
+
+# List all
+mmctl auth list
+
+# Switch between environments
+mmctl auth set prod      # Use production
+mmctl auth set staging   # Use staging
+mmctl auth set dev       # Use development
+```
+
+### Example 3: CI/CD Pipeline
+
+```bash
+#!/bin/bash
+# Store token in CI/CD secret variables
+echo "$MATTERMOST_TOKEN" > /tmp/token.txt
+
+# Login in non-interactive mode
+mmctl auth login $MATTERMOST_URL \
+  --name ci \
+  --access-token-file /tmp/token.txt
+
+# Run commands
+mmctl user create --email user@example.com --username testuser --password Password123
+
+# Cleanup
+rm /tmp/token.txt
+```
+
+## Troubleshooting
+
+### Authentication Failed
+
+If login fails:
+
+1. Verify server URL is correct and accessible
+2. Check username and password
+3. Ensure MFA token is current (if using MFA)
+4. Verify account is not locked or deactivated
+
+### Token Expired
+
+If you receive "unauthorized" errors:
+
+```bash
+# Renew the credentials
+mmctl auth renew production --password-file password.txt
+```
+
+### Connection Refused
+
+If mmctl cannot connect:
+
+1. Verify the server is running:
+   ```bash
+   curl https://mattermost.example.com
+   ```
+
+2. Check firewall and network settings
+3. Verify the URL includes the protocol (https://)
+
+### Local Mode Not Working
+
+If local mode fails:
+
+1. Verify local mode is enabled in Mattermost configuration
+2. Check socket file permissions
+3. Ensure you're running mmctl as the correct user
+4. Verify socket path:
+   ```bash
+   ls -la /var/tmp/mattermost_local.socket
+   ```
+
+## Advanced Configuration
+
+### Version Compatibility Check
+
+Enforce strict version matching:
+
+```bash
+mmctl --strict user list
+```
+
+This ensures mmctl and server versions match exactly.
+
+### Suppress Warnings
+
+Disable warning messages:
+
+```bash
+mmctl --suppress-warnings user list
+```
+
+### JSON Output for Scripts
+
+Format output as JSON for parsing:
+
+```bash
+mmctl --json auth list
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Commands" icon="terminal" href="/cli/commands">
+    Explore all available mmctl commands
+  </Card>
+  <Card title="User Management" icon="users" href="/cli/commands">
+    Learn about user management commands
+  </Card>
+</CardGroup>

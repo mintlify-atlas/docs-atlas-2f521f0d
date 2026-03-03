@@ -1,0 +1,288 @@
+---
+title: Plugin System Overview
+description: Understand Mattermost's plugin architecture, capabilities, and how plugins extend the platform
+---
+
+Mattermost plugins are powerful extensions that allow you to customize and extend the Mattermost platform without modifying the core codebase. Plugins can add new features, integrate with third-party services, and modify the behavior of the server and web app.
+
+## Architecture
+
+The Mattermost plugin system is built on a multi-process architecture using HashiCorp's go-plugin framework:
+
+```
+┌─────────────────────────────────────┐
+│     Mattermost Server Process       │
+│  ┌──────────────────────────────┐   │
+│  │    Plugin Environment        │   │
+│  │  - Manages plugin lifecycle  │   │
+│  │  - Routes API calls          │   │
+│  │  - Handles hooks             │   │
+│  └──────────────────────────────┘   │
+└─────────────────────────────────────┘
+              │
+              │ RPC over net/rpc
+              │
+┌─────────────▼───────────────────────┐
+│      Plugin Process (Go)            │
+│  - Server-side hooks                │
+│  - API access                       │
+│  - Background workers               │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│   Web App (Browser)                 │
+│  - Plugin JavaScript bundle         │
+│  - React components                 │
+│  - UI customizations                │
+└─────────────────────────────────────┘
+```
+
+### Key Components
+
+**Server Plugin**
+- Runs as a separate process
+- Written in Go
+- Communicates with Mattermost via RPC
+- Has access to the full Plugin API
+- Can implement hooks to respond to events
+
+**Web App Plugin**
+- JavaScript bundle loaded in the browser
+- Can use React components
+- Registers UI extensions via the Plugin Registry
+- Accesses server via REST API or WebSocket
+
+**Plugin Manifest**
+- Defines plugin metadata (ID, version, name)
+- Specifies server and webapp bundle paths
+- Declares configuration settings schema
+- Located at `plugin.json` or `plugin.yaml`
+
+## Capabilities
+
+Plugins can extend Mattermost in many ways:
+
+### Server-Side Capabilities
+
+<CardGroup cols={2}>
+  <Card title="Event Hooks" icon="hook">
+    React to events like messages posted, users joining channels, files uploaded, and more
+  </Card>
+  <Card title="API Access" icon="api">
+    Create posts, manage users, modify channels, and interact with all Mattermost resources
+  </Card>
+  <Card title="Slash Commands" icon="slash">
+    Register custom commands that users can invoke from the message box
+  </Card>
+  <Card title="HTTP Endpoints" icon="server">
+    Expose custom HTTP endpoints at `/plugins/{plugin-id}/*`
+  </Card>
+  <Card title="Key-Value Store" icon="database">
+    Persist plugin data with a built-in key-value database
+  </Card>
+  <Card title="Background Jobs" icon="clock">
+    Run periodic tasks or long-running workers
+  </Card>
+</CardGroup>
+
+### Web App Capabilities
+
+<CardGroup cols={2}>
+  <Card title="UI Components" icon="component">
+    Add buttons, icons, and panels throughout the interface
+  </Card>
+  <Card title="Custom Posts" icon="message">
+    Render custom post types with React components
+  </Card>
+  <Card title="Main Menu Items" icon="bars">
+    Add items to the main menu and channel menus
+  </Card>
+  <Card title="Right-Hand Sidebar" icon="sidebar">
+    Display custom content in the RHS panel
+  </Card>
+  <Card title="WebSocket Events" icon="plug">
+    Listen to and publish real-time events
+  </Card>
+  <Card title="Settings UI" icon="sliders">
+    Render custom admin console sections
+  </Card>
+</CardGroup>
+
+## Plugin Lifecycle
+
+Plugins go through several stages during their lifecycle:
+
+<Steps>
+  <Step title="Installation">
+    Plugin is uploaded and extracted to the plugin directory
+  </Step>
+  
+  <Step title="Activation">
+    Server starts the plugin process and calls `OnActivate()` hook
+  </Step>
+  
+  <Step title="Configuration">
+    `OnConfigurationChange()` is called when settings change
+  </Step>
+  
+  <Step title="Running">
+    Plugin receives hook calls and handles HTTP requests
+  </Step>
+  
+  <Step title="Deactivation">
+    `OnDeactivate()` is called for cleanup before shutdown
+  </Step>
+</Steps>
+
+## Communication Patterns
+
+### Server to Plugin
+
+The server communicates with plugins through:
+
+- **Hook calls**: Event notifications (message posted, user joined, etc.)
+- **HTTP requests**: Forwarded to `ServeHTTP()` handler
+- **Configuration updates**: Trigger `OnConfigurationChange()`
+
+### Plugin to Server
+
+Plugins communicate with the server through:
+
+- **Plugin API**: Comprehensive API for all server operations
+- **Return values**: Hook responses to modify or reject actions
+
+### Web App to Plugin
+
+The web app interacts with plugins via:
+
+- **Plugin Registry**: Register UI components and hooks
+- **HTTP requests**: Call plugin HTTP endpoints
+- **WebSocket**: Real-time bidirectional communication
+
+## Security Model
+
+Plugins run with significant privileges:
+
+<Warning>
+  Plugins have full access to the Mattermost API and can perform any action. Only install plugins from trusted sources.
+</Warning>
+
+- Plugins run as separate processes (isolation)
+- No sandboxing or permission system (full trust)
+- Can access all data and perform all operations
+- System admins must enable plugins in configuration
+- Recommended: Code review before installation
+
+## Plugin Types
+
+### Server-Only Plugins
+
+Plugins that only implement server-side functionality:
+- Background jobs
+- Webhooks and integrations
+- Data processing
+- No UI components
+
+**Manifest**: Only includes `server` section
+
+### Web App-Only Plugins
+
+Plugins that only add UI customizations:
+- Visual themes
+- UI enhancements
+- Client-side utilities
+- No server process
+
+**Manifest**: Only includes `webapp` section
+
+### Full-Stack Plugins
+
+Plugins with both server and web app components:
+- Complex integrations
+- Custom workflows
+- Rich UI interactions
+- Most common type
+
+**Manifest**: Includes both `server` and `webapp` sections
+
+## Available Hooks
+
+Plugins can implement hooks to respond to events. See the [Server-Side Development](/dev/plugins/server) guide for all available hooks.
+
+Key hooks include:
+
+- `OnActivate()` - Plugin startup
+- `MessageWillBePosted()` - Intercept messages before posting
+- `MessageHasBeenPosted()` - React to posted messages
+- `UserHasJoinedChannel()` - User membership events
+- `ServeHTTP()` - Handle HTTP requests
+- `ExecuteCommand()` - Handle slash commands
+
+## Plugin API
+
+The Plugin API provides methods for interacting with Mattermost. See the [Server-Side Development](/dev/plugins/server) guide for the complete API reference.
+
+Categories include:
+
+- **Users**: Create, update, search users
+- **Teams**: Manage teams and memberships
+- **Channels**: Create and modify channels
+- **Posts**: Send and manage messages
+- **Files**: Upload and access files
+- **Configuration**: Read server settings
+- **Key-Value Store**: Persist plugin data
+- **Logging**: Write to server logs
+
+## Development Tools
+
+### Plugin Template
+
+Use the official plugin starter template:
+
+```bash
+git clone https://github.com/mattermost/mattermost-plugin-starter-template
+cd mattermost-plugin-starter-template
+make
+```
+
+### Testing
+
+- **Plugin Testify**: Mock the Plugin API for unit tests
+- **E2E Testing**: Test against a real Mattermost instance
+- **Manual Testing**: Upload to a development server
+
+### Debugging
+
+- Use `API.LogDebug()`, `API.LogInfo()`, `API.LogError()`
+- Check server logs: `mattermost.log`
+- Use Delve debugger with reattach configurations
+
+## Best Practices
+
+See the [Best Practices](/dev/plugins/best-practices) guide for detailed recommendations.
+
+Key principles:
+
+- Handle errors gracefully
+- Use goroutines carefully
+- Respect configuration changes
+- Clean up on deactivation
+- Version your plugin properly
+- Document your plugin well
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/dev/plugins/quickstart">
+    Build your first plugin in minutes
+  </Card>
+  <Card title="Server Development" icon="server" href="/dev/plugins/server">
+    Learn about Go hooks and the Plugin API
+  </Card>
+  <Card title="Web App Development" icon="browser" href="/dev/plugins/webapp">
+    Add UI components with React
+  </Card>
+  <Card title="Manifest Reference" icon="file" href="/dev/plugins/manifest">
+    Configure your plugin manifest
+  </Card>
+</CardGroup>

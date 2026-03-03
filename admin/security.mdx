@@ -1,0 +1,562 @@
+---
+title: Security
+description: Security features, SAML, OAuth, encryption, and hardening for Mattermost
+---
+
+Mattermost provides enterprise-grade security features including encryption, authentication providers, compliance controls, and security hardening options.
+
+## Encryption
+
+### Encryption at Rest
+
+Mattermost supports encryption for data stored in the database and file storage.
+
+**Database Encryption:**
+
+```bash
+# PostgreSQL transparent data encryption (TDE)
+# Enable at the database level
+ALTER DATABASE mattermost SET default_tablespace = encrypted_tablespace;
+
+# Or use full disk encryption at OS level
+# LUKS (Linux), BitLocker (Windows), FileVault (macOS)
+```
+
+**File Storage Encryption:**
+
+```json
+{
+  "FileSettings": {
+    "AmazonS3SSE": true,
+    "AmazonS3Trace": false
+  }
+}
+```
+
+### Encryption in Transit
+
+**TLS Configuration:**
+
+```json
+{
+  "ServiceSettings": {
+    "ConnectionSecurity": "TLS",
+    "TLSCertFile": "/path/to/cert.pem",
+    "TLSKeyFile": "/path/to/key.pem",
+    "TLSMinVer": "1.2",
+    "TLSStrictTransport": true,
+    "TLSStrictTransportMaxAge": 63072000,
+    "UseLetsEncrypt": false,
+    "Forward80To443": true,
+    "TLSOverwriteCiphers": [
+      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+      "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+      "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+    ]
+  }
+}
+```
+
+**Supported TLS Versions:**
+- TLS 1.2 (recommended minimum)
+- TLS 1.3 (recommended)
+
+**Recommended Cipher Suites:**
+- `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256`
+- `TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384`
+- `TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256`
+- `TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384`
+- `TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305`
+- `TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305`
+
+> **Warning:** Never commit TLS certificates or private keys to version control. Use secure secret management solutions.
+
+### Database Connection Security
+
+```bash
+# PostgreSQL with SSL
+export MM_SQLSETTINGS_DATASOURCE="postgres://mmuser:password@localhost/mattermost?sslmode=verify-full&sslrootcert=/path/to/ca.crt&sslcert=/path/to/client.crt&sslkey=/path/to/client.key"
+```
+
+**SSL Modes:**
+- `disable` - No SSL (not recommended for production)
+- `require` - SSL required, but no verification
+- `verify-ca` - Verify server certificate against CA
+- `verify-full` - Verify server certificate and hostname (recommended)
+
+## SAML 2.0 Single Sign-On
+
+Enterprise feature for centralized authentication.
+
+### SAML Configuration
+
+```json
+{
+  "SamlSettings": {
+    "Enable": true,
+    "EnableSyncWithLdap": false,
+    "Verify": true,
+    "Encrypt": true,
+    "SignRequest": true,
+    "IdpUrl": "https://idp.example.com/saml/sso",
+    "IdpDescriptorUrl": "https://idp.example.com/saml/metadata",
+    "IdpMetadataUrl": "https://idp.example.com/saml/metadata.xml",
+    "ServiceProviderIdentifier": "https://mattermost.example.com",
+    "AssertionConsumerServiceURL": "https://mattermost.example.com/login/sso/saml",
+    "SignatureAlgorithm": "RSAwithSHA256",
+    "CanonicalAlgorithm": "Canonical1.0",
+    "ScopingIDPProviderId": "",
+    "ScopingIDPName": "",
+    "IdAttribute": "id",
+    "GuestAttribute": "",
+    "AdminAttribute": "",
+    "FirstNameAttribute": "firstName",
+    "LastNameAttribute": "lastName",
+    "EmailAttribute": "email",
+    "UsernameAttribute": "username",
+    "NicknameAttribute": "",
+    "LocaleAttribute": "",
+    "PositionAttribute": ""
+  }
+}
+```
+
+### Setting Up SAML
+
+**Step 1: Generate Service Provider Metadata**
+
+```bash
+# Download metadata from Mattermost
+curl https://mattermost.example.com/api/v4/saml/metadata > sp-metadata.xml
+```
+
+**Step 2: Upload Certificates**
+
+```bash
+# Upload IdP certificate
+mmctl saml certificate upload-idp --cert idp.crt
+
+# Upload service provider certificates
+mmctl saml certificate upload-public --cert public.crt
+mmctl saml certificate upload-private --cert private.key
+
+# Verify certificates
+mmctl saml certificate status
+```
+
+**Step 3: Configure Identity Provider**
+
+Provide to your IdP administrator:
+- Entity ID: `https://mattermost.example.com`
+- ACS URL: `https://mattermost.example.com/login/sso/saml`
+- Service Provider Metadata: `sp-metadata.xml`
+
+**Step 4: Test SAML Login**
+
+```bash
+# Navigate to login page
+https://mattermost.example.com/login/sso/saml
+```
+
+### SAML Attribute Mapping
+
+| Mattermost Field | SAML Attribute | Required |
+|------------------|----------------|----------|
+| User ID | `IdAttribute` | Yes |
+| Email | `EmailAttribute` | Yes |
+| Username | `UsernameAttribute` | Yes |
+| First Name | `FirstNameAttribute` | No |
+| Last Name | `LastNameAttribute` | No |
+| Guest Status | `GuestAttribute` | No |
+| Admin Status | `AdminAttribute` | No |
+
+## OAuth 2.0 Authentication
+
+Support for third-party OAuth providers.
+
+### GitLab OAuth
+
+```json
+{
+  "GitLabSettings": {
+    "Enable": true,
+    "Id": "gitlab-app-id",
+    "Secret": "gitlab-app-secret",
+    "Scope": "read_user",
+    "AuthEndpoint": "https://gitlab.example.com/oauth/authorize",
+    "TokenEndpoint": "https://gitlab.example.com/oauth/token",
+    "UserApiEndpoint": "https://gitlab.example.com/api/v4/user"
+  }
+}
+```
+
+### Google OAuth
+
+```json
+{
+  "GoogleSettings": {
+    "Enable": true,
+    "Id": "your-client-id.apps.googleusercontent.com",
+    "Secret": "your-client-secret",
+    "Scope": "profile email",
+    "AuthEndpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+    "TokenEndpoint": "https://www.googleapis.com/oauth2/v4/token",
+    "UserApiEndpoint": "https://people.googleapis.com/v1/people/me?personFields=names,emailAddresses,nicknames,metadata"
+  }
+}
+```
+
+### Office365 OAuth
+
+```json
+{
+  "Office365Settings": {
+    "Enable": true,
+    "Id": "azure-app-id",
+    "Secret": "azure-app-secret",
+    "Scope": "User.Read",
+    "AuthEndpoint": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    "TokenEndpoint": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    "UserApiEndpoint": "https://graph.microsoft.com/v1.0/me",
+    "DirectoryId": "common"
+  }
+}
+```
+
+## Multi-Factor Authentication (MFA)
+
+### Enable MFA
+
+```json
+{
+  "ServiceSettings": {
+    "EnableMultifactorAuthentication": true,
+    "EnforceMultifactorAuthentication": false
+  }
+}
+```
+
+**Enforce MFA for All Users:**
+
+```bash
+mmctl config set ServiceSettings.EnforceMultifactorAuthentication true
+```
+
+> **Note:** Users must set up MFA using TOTP apps like Google Authenticator, Authy, or 1Password.
+
+### MFA Recovery
+
+```bash
+# If user loses MFA device, admin can reset:
+mmctl user reset-mfa john.doe
+```
+
+## Password Security
+
+### Password Policies
+
+```json
+{
+  "PasswordSettings": {
+    "MinimumLength": 10,
+    "Lowercase": true,
+    "Number": true,
+    "Uppercase": true,
+    "Symbol": true
+  },
+  "ServiceSettings": {
+    "MaximumLoginAttempts": 10
+  }
+}
+```
+
+**Password Requirements:**
+- Minimum length: 5-72 characters (recommended: 10+)
+- Lowercase letters (optional)
+- Uppercase letters (optional)
+- Numbers (optional)
+- Symbols (optional)
+
+### Password Hashing
+
+Mattermost uses bcrypt for password hashing:
+- Algorithm: bcrypt
+- Work factor: 10 (default)
+- Automatic migration to latest hashing method
+
+## Session Security
+
+### Session Configuration
+
+```json
+{
+  "ServiceSettings": {
+    "SessionLengthWebInHours": 720,
+    "SessionLengthMobileInHours": 720,
+    "SessionLengthSSOInHours": 720,
+    "SessionCacheInMinutes": 10,
+    "SessionIdleTimeoutInMinutes": 43200,
+    "ExtendSessionLengthWithActivity": true,
+    "TerminateSessionsOnPasswordChange": true
+  }
+}
+```
+
+### Session Management
+
+```bash
+# View active sessions
+mmctl user sessions username
+
+# Revoke all sessions for user
+mmctl user revoke-sessions username
+
+# Revoke all sessions system-wide (force re-login)
+mmctl system clear-caches
+```
+
+## Security Hardening
+
+### Content Security Policy
+
+```json
+{
+  "ServiceSettings": {
+    "ExperimentalStrictCSRFEnforcement": true
+  }
+}
+```
+
+### CORS Configuration
+
+```json
+{
+  "ServiceSettings": {
+    "AllowCorsFrom": "https://mattermost.example.com",
+    "CorsExposedHeaders": "",
+    "CorsAllowCredentials": false,
+    "CorsDebug": false
+  }
+}
+```
+
+### Network Security
+
+```json
+{
+  "ServiceSettings": {
+    "EnableInsecureOutgoingConnections": false,
+    "AllowedUntrustedInternalConnections": "",
+    "TrustedProxyIPHeader": ["X-Forwarded-For", "X-Real-IP"]
+  }
+}
+```
+
+### Rate Limiting
+
+```json
+{
+  "RateLimitSettings": {
+    "Enable": true,
+    "PerSec": 10,
+    "MaxBurst": 100,
+    "MemoryStoreSize": 10000,
+    "VaryByRemoteAddr": true,
+    "VaryByUser": true,
+    "VaryByHeader": ""
+  }
+}
+```
+
+## Compliance and Auditing
+
+### Audit Logging
+
+```json
+{
+  "ExperimentalAuditSettings": {
+    "FileEnabled": true,
+    "FileName": "audit.log",
+    "FileMaxSizeMB": 100,
+    "FileMaxAgeDays": 0,
+    "FileMaxBackups": 0,
+    "FileCompress": true,
+    "FileMaxQueueSize": 1000,
+    "AdvancedLoggingJSON": {}
+  }
+}
+```
+
+### Data Retention Policies
+
+```json
+{
+  "DataRetentionSettings": {
+    "EnableMessageDeletion": true,
+    "EnableFileDeletion": true,
+    "MessageRetentionDays": 365,
+    "MessageRetentionHours": 0,
+    "FileRetentionDays": 365,
+    "FileRetentionHours": 0,
+    "DeletionJobStartTime": "02:00",
+    "BatchSize": 3000
+  }
+}
+```
+
+### Compliance Exports
+
+```bash
+# Create compliance export
+mmctl export create --format actiance
+
+# List exports
+mmctl export list
+
+# Download export
+mmctl export download export-id --output /path/to/export.zip
+```
+
+## IP Filtering and Allowlisting
+
+Restrict access by IP address (requires reverse proxy):
+
+**Nginx Configuration:**
+
+```nginx
+# Allow specific IPs
+allow 192.168.1.0/24;
+allow 10.0.0.0/8;
+deny all;
+
+location / {
+    proxy_pass http://mattermost:8065;
+}
+```
+
+## Plugin Security
+
+### Plugin Signing
+
+```json
+{
+  "PluginSettings": {
+    "RequirePluginSignature": true,
+    "SignaturePublicKeyFiles": [
+      "/path/to/public-key.asc"
+    ]
+  }
+}
+```
+
+### Plugin Permissions
+
+```bash
+# Review plugin permissions before installation
+mmctl plugin list
+
+# Enable/disable plugins
+mmctl plugin enable plugin-id
+mmctl plugin disable plugin-id
+```
+
+## Security Best Practices
+
+> **Warning: Critical Security Practices**
+>
+> 1. **Always use TLS in production** - Never serve Mattermost over HTTP
+> 2. **Enable MFA for admins** - Require MFA for system administrators
+> 3. **Regular security updates** - Keep Mattermost updated to latest version
+> 4. **Strong password policies** - Enforce minimum 10-character passwords
+> 5. **Database encryption** - Enable encryption at rest for databases
+> 6. **Secure secrets** - Never commit credentials to version control
+> 7. **Audit logging** - Enable and monitor audit logs
+> 8. **Network segmentation** - Isolate Mattermost in secure network zones
+> 9. **Regular backups** - Maintain encrypted off-site backups
+> 10. **Penetration testing** - Conduct regular security assessments
+
+### Security Checklist
+
+- [ ] TLS 1.2+ enabled with strong ciphers
+- [ ] Database connections use SSL/TLS
+- [ ] MFA enabled and enforced for admins
+- [ ] Strong password policy configured
+- [ ] Session timeouts configured
+- [ ] Rate limiting enabled
+- [ ] CSRF protection enabled
+- [ ] Audit logging enabled
+- [ ] Data retention policies configured
+- [ ] Regular backups automated
+- [ ] Security updates applied monthly
+- [ ] Plugin signatures required
+- [ ] IP allowlisting configured (if required)
+- [ ] Compliance exports scheduled
+
+## Security Monitoring
+
+### Security Events to Monitor
+
+```bash
+# Failed login attempts
+grep "invalid password" logs/mattermost.log
+
+# Session anomalies
+grep "session" logs/mattermost.log | grep -i "error\|fail"
+
+# Plugin installations
+grep "plugin" logs/mattermost.log
+
+# Configuration changes
+grep "config" logs/mattermost.log
+```
+
+### Integration with SIEM
+
+Export logs to your SIEM solution:
+
+```json
+{
+  "LogSettings": {
+    "EnableSyslog": true,
+    "SyslogServerAddress": "syslog.example.com:514",
+    "SyslogProtocol": "tcp",
+    "SyslogTag": "mattermost",
+    "SyslogCert": "/path/to/cert.pem",
+    "SyslogInsecure": false
+  }
+}
+```
+
+## Incident Response
+
+### Security Incident Procedures
+
+1. **Detect**: Monitor logs and alerts
+2. **Contain**: Revoke sessions, disable accounts
+3. **Investigate**: Review audit logs, access patterns
+4. **Remediate**: Apply patches, update configurations
+5. **Document**: Record incident details and lessons learned
+
+```bash
+# Emergency procedures
+
+# Revoke all sessions
+mmctl user revoke-sessions --all
+
+# Disable compromised user
+mmctl user deactivate compromised.user
+
+# Export audit logs
+mmctl logs export --output incident-logs.json
+
+# Reset user passwords
+mmctl user reset-password username --password TempSecure123!
+```
+
+## Related Resources
+
+- [Configuration](/admin/configuration)
+- [User Management](/admin/user-management)
+- [Monitoring](/admin/monitoring)
+- [Backup & Restore](/admin/backup-restore)

@@ -1,0 +1,437 @@
+---
+title: Plugin Quickstart
+description: Create your first Mattermost plugin from scratch in minutes
+---
+
+This guide walks you through creating a simple Mattermost plugin that responds to messages and provides a slash command.
+
+## Prerequisites
+
+- Go 1.19 or later installed
+- Node.js 16+ and npm installed
+- Mattermost server running (local or remote)
+- System console admin access
+
+## What You'll Build
+
+A "Hello World" plugin that:
+- Responds to messages containing "hello"
+- Provides a `/hello` slash command
+- Displays a custom UI component in the channel header
+
+## Project Setup
+
+<Steps>
+  <Step title="Use the Plugin Template">
+    Clone the official starter template:
+
+    ```bash
+    git clone https://github.com/mattermost/mattermost-plugin-starter-template my-plugin
+    cd my-plugin
+    ```
+  </Step>
+
+  <Step title="Customize the Plugin ID">
+    Edit `plugin.json` and update the plugin metadata:
+
+    ```json
+    {
+      "id": "com.example.hello",
+      "name": "Hello Plugin",
+      "description": "A simple hello world plugin",
+      "version": "0.1.0",
+      "min_server_version": "9.0.0",
+      "server": {
+        "executables": {
+          "linux-amd64": "server/dist/plugin-linux-amd64",
+          "darwin-amd64": "server/dist/plugin-darwin-amd64",
+          "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+        }
+      },
+      "webapp": {
+        "bundle_path": "webapp/dist/main.js"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    Install Go and Node.js dependencies:
+
+    ```bash
+    # Install Go dependencies
+    cd server
+    go mod download
+    cd ..
+
+    # Install Node.js dependencies  
+    cd webapp
+    npm install
+    cd ..
+    ```
+  </Step>
+</Steps>
+
+## Server-Side Implementation
+
+<Steps>
+  <Step title="Create the Plugin Structure">
+    Create `server/plugin.go`:
+
+    ```go
+    package main
+
+    import (
+        "fmt"
+        "strings"
+        "sync"
+
+        "github.com/mattermost/mattermost/server/public/model"
+        "github.com/mattermost/mattermost/server/public/plugin"
+    )
+
+    type Plugin struct {
+        plugin.MattermostPlugin
+
+        configurationLock sync.RWMutex
+        configuration      *configuration
+    }
+
+    type configuration struct {
+        Enabled bool
+    }
+    ```
+  </Step>
+
+  <Step title="Implement OnActivate Hook">
+    Add the activation hook to register the slash command:
+
+    ```go
+    func (p *Plugin) OnActivate() error {
+        if err := p.API.RegisterCommand(&model.Command{
+            Trigger:          "hello",
+            AutoComplete:     true,
+            AutoCompleteDesc: "Say hello!",
+            AutoCompleteHint: "[name]",
+        }); err != nil {
+            return fmt.Errorf("failed to register command: %w", err)
+        }
+
+        p.API.LogInfo("Hello Plugin activated")
+        return nil
+    }
+    ```
+  </Step>
+
+  <Step title="Implement Slash Command Handler">
+    Add the command execution logic:
+
+    ```go
+    func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+        if args.Command != "/hello" {
+            return nil, nil
+        }
+
+        name := strings.TrimSpace(strings.TrimPrefix(args.Command, "/hello"))
+        if name == "" {
+            name = "World"
+        }
+
+        post := &model.Post{
+            UserId:    p.API.GetBotUserId(),
+            ChannelId: args.ChannelId,
+            Message:   fmt.Sprintf("Hello, %s! 👋", name),
+        }
+
+        if _, err := p.API.CreatePost(post); err != nil {
+            return nil, err
+        }
+
+        return &model.CommandResponse{}, nil
+    }
+    ```
+  </Step>
+
+  <Step title="Implement Message Hook">
+    Respond to messages containing "hello":
+
+    ```go
+    func (p *Plugin) MessageHasBeenPosted(c *plugin.Context, post *model.Post) {
+        // Don't respond to our own messages
+        if post.UserId == p.API.GetBotUserId() {
+            return
+        }
+
+        // Check if message contains "hello"
+        if !strings.Contains(strings.ToLower(post.Message), "hello") {
+            return
+        }
+
+        // Send an ephemeral response (only visible to the user)
+        p.API.SendEphemeralPost(post.UserId, &model.Post{
+            ChannelId: post.ChannelId,
+            Message:   "I saw you say hello! 👀",
+        })
+    }
+    ```
+  </Step>
+
+  <Step title="Add Main Function">
+    Add the plugin entry point:
+
+    ```go
+    func main() {
+        plugin.ClientMain(&Plugin{})
+    }
+    ```
+  </Step>
+</Steps>
+
+## Web App Implementation
+
+<Steps>
+  <Step title="Create Plugin Component">
+    Create `webapp/src/index.tsx`:
+
+    ```typescript
+    import React from 'react';
+    import {Store} from 'redux';
+
+    export default class Plugin {
+        public initialize(registry: any, store: Store) {
+            // Register a channel header button
+            registry.registerChannelHeaderButtonAction(
+                <i className="icon fa fa-hand-wave"/>,
+                () => this.handleButtonClick(store),
+                'Say Hello',
+                'Click to say hello'
+            );
+        }
+
+        private handleButtonClick(store: Store) {
+            const state = store.getState();
+            const currentChannelId = state.entities.channels.currentChannelId;
+            
+            // Execute the /hello command
+            window.PostUtils.executeCommand('/hello', {channelId: currentChannelId});
+        }
+    }
+
+    (window as any).registerPlugin('com.example.hello', new Plugin());
+    ```
+  </Step>
+
+  <Step title="Configure Webpack">
+    Create `webapp/webpack.config.js`:
+
+    ```javascript
+    const path = require('path');
+
+    module.exports = {
+        entry: './src/index.tsx',
+        output: {
+            path: path.resolve(__dirname, 'dist'),
+            filename: 'main.js',
+        },
+        resolve: {
+            extensions: ['.ts', '.tsx', '.js', '.jsx'],
+        },
+        module: {
+            rules: [
+                {
+                    test: /\.tsx?$/,
+                    use: 'ts-loader',
+                    exclude: /node_modules/,
+                },
+            ],
+        },
+        externals: {
+            react: 'React',
+            redux: 'Redux',
+        },
+    };
+    ```
+  </Step>
+</Steps>
+
+## Build and Deploy
+
+<Steps>
+  <Step title="Build the Plugin">
+    Create a `Makefile` or build script:
+
+    ```bash
+    # Build server binary for your platform
+    cd server
+    go build -o dist/plugin-linux-amd64
+    cd ..
+
+    # Build webapp bundle
+    cd webapp
+    npm run build
+    cd ..
+
+    # Create plugin bundle
+    mkdir -p dist
+    cp plugin.json dist/
+    cp -r server/dist dist/server
+    cp -r webapp/dist dist/webapp
+    cd dist
+    tar -czf com.example.hello.tar.gz *
+    ```
+
+    Or use the template's Makefile:
+
+    ```bash
+    make dist
+    ```
+  </Step>
+
+  <Step title="Upload to Mattermost">
+    1. Go to **System Console > Plugins > Plugin Management**
+    2. Click **Choose File** under **Upload Plugin**
+    3. Select `com.example.hello.tar.gz`
+    4. Click **Upload**
+    5. Click **Enable** on your plugin
+  </Step>
+
+  <Step title="Test the Plugin">
+    In any channel:
+
+    1. Type a message with "hello" - you should see an ephemeral response
+    2. Run `/hello` command - bot posts a greeting
+    3. Run `/hello YourName` - bot greets you by name
+    4. Look for the wave icon in the channel header
+  </Step>
+</Steps>
+
+## Complete Plugin Code
+
+Here's the complete `server/plugin.go`:
+
+```go
+package main
+
+import (
+    "fmt"
+    "strings"
+    "sync"
+
+    "github.com/mattermost/mattermost/server/public/model"
+    "github.com/mattermost/mattermost/server/public/plugin"
+)
+
+type Plugin struct {
+    plugin.MattermostPlugin
+    configurationLock sync.RWMutex
+    configuration      *configuration
+}
+
+type configuration struct {
+    Enabled bool
+}
+
+func (p *Plugin) OnActivate() error {
+    if err := p.API.RegisterCommand(&model.Command{
+        Trigger:          "hello",
+        AutoComplete:     true,
+        AutoCompleteDesc: "Say hello!",
+        AutoCompleteHint: "[name]",
+    }); err != nil {
+        return fmt.Errorf("failed to register command: %w", err)
+    }
+
+    p.API.LogInfo("Hello Plugin activated")
+    return nil
+}
+
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+    if args.Command != "/hello" {
+        return nil, nil
+    }
+
+    name := strings.TrimSpace(strings.TrimPrefix(args.Command, "/hello"))
+    if name == "" {
+        name = "World"
+    }
+
+    post := &model.Post{
+        UserId:    p.API.GetBotUserId(),
+        ChannelId: args.ChannelId,
+        Message:   fmt.Sprintf("Hello, %s! 👋", name),
+    }
+
+    if _, err := p.API.CreatePost(post); err != nil {
+        return nil, err
+    }
+
+    return &model.CommandResponse{}, nil
+}
+
+func (p *Plugin) MessageHasBeenPosted(c *plugin.Context, post *model.Post) {
+    if post.UserId == p.API.GetBotUserId() {
+        return
+    }
+
+    if !strings.Contains(strings.ToLower(post.Message), "hello") {
+        return
+    }
+
+    p.API.SendEphemeralPost(post.UserId, &model.Post{
+        ChannelId: post.ChannelId,
+        Message:   "I saw you say hello! 👀",
+    })
+}
+
+func main() {
+    plugin.ClientMain(&Plugin{})
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Plugin won't activate">
+    - Check **System Console > Logs** for error messages
+    - Ensure `min_server_version` matches your server version
+    - Verify the binary is built for the correct OS/architecture
+    - Check that plugin uploads are enabled in System Console
+  </Accordion>
+
+  <Accordion title="Slash command not appearing">
+    - Make sure `OnActivate()` returned without error
+    - Check that the command trigger is unique
+    - Try deactivating and reactivating the plugin
+  </Accordion>
+
+  <Accordion title="Web app component not showing">
+    - Clear browser cache and reload
+    - Check browser console for JavaScript errors
+    - Verify webpack bundle built successfully
+    - Ensure plugin ID matches in manifest and webapp code
+  </Accordion>
+
+  <Accordion title="Changes not appearing">
+    - Rebuild the plugin after code changes
+    - Re-upload to Mattermost
+    - Deactivate and reactivate the plugin
+    - Hard refresh browser (Ctrl+Shift+R)
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Server Development" icon="server" href="/dev/plugins/server">
+    Learn about all available hooks and the Plugin API
+  </Card>
+  <Card title="Web App Development" icon="browser" href="/dev/plugins/webapp">
+    Explore UI customization with React
+  </Card>
+  <Card title="Manifest Reference" icon="file" href="/dev/plugins/manifest">
+    Configure advanced manifest options
+  </Card>
+  <Card title="Best Practices" icon="check" href="/dev/plugins/best-practices">
+    Write production-ready plugins
+  </Card>
+</CardGroup>

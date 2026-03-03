@@ -1,0 +1,474 @@
+---
+title: Voice Calls & Screen Sharing
+description: Real-time voice communication and screen sharing directly within Mattermost
+---
+
+Mattermost Calls brings voice calling, video, and screen sharing directly into your channels, enabling seamless real-time collaboration without leaving your workspace.
+
+## Calls Overview
+
+<CardGroup cols={2}>
+  <Card title="Voice & Video Calls" icon="phone">
+    High-quality voice and video calls directly in channels
+  </Card>
+  
+  <Card title="Screen Sharing" icon="desktop">
+    Share your screen with participants during calls
+  </Card>
+  
+  <Card title="Call Recording" icon="record-vinyl">
+    Record calls for future reference and transcription
+  </Card>
+  
+  <Card title="Channel Integration" icon="hashtag">
+    Calls live in channels alongside messages and files
+  </Card>
+</CardGroup>
+
+## Getting Started with Calls
+
+### Enabling Calls
+
+Calls are powered by the Calls plugin, which comes prepackaged with Mattermost.
+
+**System Admins** enable calls:
+1. Navigate to **System Console** → **Plugins** → **Calls**
+2. Enable the plugin
+3. Configure settings (optional):
+   - Maximum call participants
+   - Recording options
+   - ICE/TURN servers for connectivity
+   - Default call settings
+
+**Channel Admins** enable calls per channel:
+1. Open channel menu (channel name dropdown)
+2. Click **Enable Calls**
+3. Calls widget appears in channel header
+
+<Note>
+Calls must be enabled both globally (by System Admin) and per-channel (by Channel Admin or Member with permissions).
+</Note>
+
+### Starting a Call
+
+**From Channel**:
+1. Click the **phone icon** in channel header
+2. Or type `/call start`
+3. Call widget appears in channel
+4. Other channel members see notification
+
+**From Direct Message**:
+1. Click profile picture of user
+2. Select **Call**
+3. One-on-one call starts immediately
+
+**From Profile**:
+1. Click any user's profile
+2. Select **Call** button
+3. Direct call initiated
+
+<Tip>
+Calls in channels are visible to all channel members. Anyone can join an active call at any time.
+</Tip>
+
+## Call Features
+
+### Voice Calling
+
+High-quality voice communication:
+
+- **WebRTC Technology**: Browser-based, no downloads required
+- **Automatic Audio Setup**: Detects microphone automatically
+- **Push to Talk**: Optional push-to-talk mode
+- **Noise Suppression**: Filter background noise
+- **Echo Cancellation**: Built-in echo reduction
+- **Multiple Participants**: Support for many simultaneous speakers
+
+**Audio Controls**:
+```
+🎤 Mute/Unmute - Toggle your microphone
+🔊 Volume - Adjust speaker volume
+⚙️ Settings - Choose audio devices
+📞 Leave - Exit the call
+```
+
+### Video Calling
+
+Face-to-face communication:
+
+- **Camera Support**: Enable video from any device
+- **Gallery View**: See all participants simultaneously
+- **Speaker View**: Focus on active speaker
+- **Self-View**: See your own video feed
+- **Video Quality**: Adapts to network conditions
+- **Bandwidth Optimization**: Automatic quality adjustment
+
+**Video Controls**:
+```
+📹 Start/Stop Video - Toggle camera
+🖼️ Change Layout - Switch between gallery/speaker view
+⚙️ Video Settings - Select camera and resolution
+```
+
+### Screen Sharing
+
+Share your screen with participants:
+
+**What You Can Share**:
+- Entire screen
+- Specific application window
+- Browser tab
+- Specific monitor (multi-monitor setups)
+
+**Starting Screen Share**:
+1. Join call
+2. Click **Share Screen** button
+3. Select what to share
+4. Click **Share**
+5. Screen appears to all participants
+
+**Screen Share Features**:
+- High-resolution sharing
+- Adjustable frame rate
+- Audio sharing (share system audio)
+- Annotation support (via integrations)
+- Multiple presenters can queue
+
+<Tip>
+When sharing, select specific application windows instead of entire screen to avoid sharing sensitive information.
+</Tip>
+
+### Call Recording
+
+Record calls for documentation and reference:
+
+**Starting Recording**:
+1. Join call (must be host or have permissions)
+2. Click **Record** button
+3. All participants notified recording started
+4. Recording indicator shows in call widget
+
+**Recording Features**:
+- **Audio & Video**: Captures both
+- **Screen Shares**: Includes shared screens
+- **Transcription**: Automatic speech-to-text (if enabled)
+- **Cloud Storage**: Recordings saved to configured storage
+- **Download**: Export recordings as MP4
+
+**Accessing Recordings**:
+1. Recordings posted to channel after call ends
+2. Click to play in-browser
+3. Download for offline viewing
+4. Transcripts available alongside recording
+
+<Warning>
+Call recording may have legal implications. Always inform participants when recording is active. Check your local laws regarding call recording consent.
+</Warning>
+
+## Call Management
+
+### Call Participants
+
+**Viewing Participants**:
+- Participant list shows all active users
+- See who is muted/unmuted
+- See who is sharing screen
+- See who is recording
+
+**Participant Actions** (for hosts):
+- Mute participants
+- Remove participants (if permitted)
+- Hand off host controls
+- Manage recording permissions
+
+### Call Quality
+
+**Quality Indicators**:
+```
+🟢 Excellent - Strong connection, high quality
+🟡 Good - Minor issues, slight degradation  
+🔴 Poor - Significant issues, low quality
+```
+
+**Improving Call Quality**:
+1. Close bandwidth-heavy applications
+2. Use wired internet connection
+3. Reduce video resolution
+4. Disable video (audio-only)
+5. Move closer to WiFi router
+6. Check firewall settings
+
+### Call Notifications
+
+**In-Channel Notifications**:
+- Call started message posted to channel
+- Participant join/leave notifications
+- Recording started/stopped alerts
+- Call ended summary
+
+**Desktop Notifications**:
+- Push notification when call starts
+- Sound notification (configurable)
+- Toast notification with join button
+- Badge on channel with active call
+
+**Mobile Notifications**:
+- Push notification for incoming calls
+- Ringtone plays (configurable)
+- Accept/Decline options
+- Join directly from notification
+
+## Advanced Features
+
+### Call Hosts
+
+First person to start call becomes host:
+
+**Host Capabilities**:
+- Start/stop recording
+- Mute participants
+- End call for everyone
+- Hand off host role
+- Configure call settings
+
+**Host Transfer**:
+- Host can transfer role to another participant
+- Automatic transfer if host leaves
+- Prevents calls from ending prematurely
+
+### Raise Hand
+
+Signal desire to speak without interrupting:
+
+1. Click **Raise Hand** button
+2. Hand indicator appears next to your name
+3. Host sees raised hand notification
+4. Host can call on you
+5. Lower hand when finished
+
+### Chat During Calls
+
+Text communication alongside voice:
+
+- Channel messages continue during call
+- Use for sharing links and references
+- Post screenshots and files
+- Coordinate without interrupting speaker
+- Threaded discussions during presentations
+
+### Call Reactions
+
+Quick feedback without unmuting:
+
+```
+👍 Agree / Like
+👎 Disagree / Dislike  
+❤️ Love it
+😂 Funny
+👏 Applause
+```
+
+Reactions appear temporarily over participant video/avatar.
+
+## Integration with Channels
+
+### Channel Call Widget
+
+Persistent call controls in channel:
+
+```
+┌─────────────────────────────────────┐
+│ 🔴 Call in Progress                 │
+│ 👤 5 participants                   │
+│                                     │
+│ [Join Call]  [View Participants]   │
+└─────────────────────────────────────┘
+```
+
+### Call History
+
+Track call activity:
+
+- Call started/ended messages in channel
+- Duration and participant count
+- Recording links (if recorded)
+- Searchable call logs
+- Export call history
+
+### Permissions
+
+Control who can use call features:
+
+**Channel Permissions**:
+- Enable/disable calls in channel
+- Who can start calls
+- Who can record calls
+- Who can share screen
+
+**User Permissions**:
+- Based on channel membership
+- Role-based restrictions
+- Guest limitations
+
+## Call Settings
+
+### User Settings
+
+Personalize your call experience:
+
+**Audio Settings**:
+- Microphone selection
+- Speaker/headphone selection
+- Input volume level
+- Output volume level
+- Noise suppression toggle
+
+**Video Settings**:
+- Camera selection
+- Video resolution
+- Frame rate
+- Mirror video
+- Virtual background (if supported)
+
+**Notification Settings**:
+- Call ringtone
+- Ringtone volume
+- Notification sounds
+- Do not disturb during calls
+
+### Admin Settings
+
+**System Console** → **Plugins** → **Calls**:
+
+**General**:
+- Enable/disable calls globally
+- Default channel call setting
+- Maximum participants
+- Enable video by default
+
+**Recording**:
+- Enable recording feature
+- Max recording duration
+- Storage location
+- Transcription service
+- Automatic transcription
+
+**Network**:
+- ICE servers (STUN/TURN)
+- UDP/TCP preferences
+- Bitrate limits
+- Connection timeout
+
+<Note>
+TURN servers may be required for calls to work behind restrictive firewalls or NATs. Configure ICE servers for best connectivity.
+</Note>
+
+## Mobile Experience
+
+### Mobile Calls
+
+Calls work seamlessly on mobile:
+
+**iOS & Android Support**:
+- Native call interface
+- Background audio support
+- Bluetooth headset support
+- Picture-in-picture video
+- Low-data mode
+
+**Mobile-Specific Features**:
+- Screen sharing from mobile device
+- Front/rear camera switching
+- Earpiece vs. speaker audio
+- Push notifications for incoming calls
+- Lock screen call controls
+
+### Joining from Mobile
+
+1. Receive call notification
+2. Tap **Join** from notification or channel
+3. Grant microphone/camera permissions (first time)
+4. Call interface opens
+5. Full call controls available
+
+## Troubleshooting
+
+### Common Issues
+
+**Can't Hear Audio**:
+- Check system volume and Mattermost volume
+- Verify correct speaker selected
+- Check browser audio permissions
+- Try different browser
+
+**Can't Share Screen**:
+- Grant screen sharing permission in browser
+- Check browser version (needs modern browser)
+- Close and reopen browser
+- Try different sharing method (window vs. screen)
+
+**Poor Call Quality**:
+- Check internet connection speed
+- Close other bandwidth-heavy apps
+- Reduce video quality or disable video
+- Check if others have same issue
+
+**Can't Connect to Call**:
+- Check firewall settings
+- Verify TURN servers configured (System Admin)
+- Try different network
+- Check browser console for errors
+
+### Network Requirements
+
+**Minimum Bandwidth**:
+- Audio-only: 100 kbps
+- Video (720p): 1.5 Mbps
+- Screen sharing: 1-2 Mbps
+- Multiple participants: Scale accordingly
+
+**Required Ports**:
+- UDP: 3478 (STUN)
+- UDP: 49152-65535 (Media)
+- TCP: 443 (Fallback)
+
+**Firewall Configuration**:
+- Allow WebRTC traffic
+- Configure TURN servers if behind NAT
+- Whitelist Mattermost domains
+
+## Best Practices
+
+### Running Effective Calls
+
+1. **Test Audio/Video First**: Check settings before important calls
+2. **Mute When Not Speaking**: Reduce background noise
+3. **Use Headphones**: Prevent echo and feedback
+4. **Good Lighting**: For video calls, face light source
+5. **Stable Connection**: Use wired internet when possible
+6. **Clear Background**: Professional appearance for video
+
+### Call Etiquette
+
+- Announce yourself when joining large calls
+- Use raise hand feature instead of interrupting
+- Mute when not speaking in large groups
+- Turn off video if bandwidth is limited
+- End call properly rather than just leaving
+- Post summary or action items after call
+
+### Recording Guidelines
+
+1. **Always announce** when starting recording
+2. **Get consent** from participants
+3. **State purpose** of recording
+4. **Limit access** to recordings appropriately
+5. **Delete when no longer needed**
+6. **Follow legal requirements** for your jurisdiction
+
+## Related Features
+
+- [Channels](/features/channels) - Where calls take place
+- [Messaging](/features/messaging) - Text communication alongside calls
+- [Integrations](/features/integrations) - Connect with Zoom and other platforms
+- [Plugins](/features/plugins) - Calls powered by plugin architecture

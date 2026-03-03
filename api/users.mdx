@@ -1,0 +1,549 @@
+---
+title: 'Users API'
+description: 'Create, retrieve, update, and manage user accounts'
+---
+
+## Overview
+
+The Users API provides endpoints for managing user accounts, profiles, authentication, and user-related operations.
+
+<Note>
+When using endpoints that require a user ID, you can use the string `me` in place of the user ID to reference the currently authenticated user.
+</Note>
+
+## Create User
+
+Create a new user account on the system.
+
+```http
+POST /api/v4/users
+```
+
+### Request Body
+
+<ParamField body="email" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField body="username" type="string" required>
+  User's username (lowercase alphanumeric)
+</ParamField>
+
+<ParamField body="password" type="string">
+  Password for email authentication (required for email/username accounts)
+</ParamField>
+
+<ParamField body="first_name" type="string">
+  User's first name
+</ParamField>
+
+<ParamField body="last_name" type="string">
+  User's last name
+</ParamField>
+
+<ParamField body="nickname" type="string">
+  User's nickname
+</ParamField>
+
+<ParamField body="position" type="string">
+  User's job title or position
+</ParamField>
+
+<ParamField body="locale" type="string">
+  User's locale (e.g., "en", "es", "fr")
+</ParamField>
+
+<ParamField body="auth_service" type="string">
+  Authentication service: "email", "gitlab", "ldap", "saml", "office365", "google"
+</ParamField>
+
+<ParamField body="auth_data" type="string">
+  Service-specific authentication data (required for SSO)
+</ParamField>
+
+### Example Request
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:8065/api/v4/users \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "john.doe@example.com",
+    "username": "johndoe",
+    "password": "SecurePass123!",
+    "first_name": "John",
+    "last_name": "Doe"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8065/api/v4/users', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'john.doe@example.com',
+    username: 'johndoe',
+    password: 'SecurePass123!',
+    first_name: 'John',
+    last_name: 'Doe'
+  })
+});
+```
+</CodeGroup>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Unique user identifier
+</ResponseField>
+
+<ResponseField name="username" type="string">
+  User's username
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User's email address
+</ResponseField>
+
+<ResponseField name="first_name" type="string">
+  User's first name
+</ResponseField>
+
+<ResponseField name="last_name" type="string">
+  User's last name
+</ResponseField>
+
+<ResponseField name="create_at" type="integer">
+  Timestamp in milliseconds when user was created
+</ResponseField>
+
+<ResponseField name="roles" type="string">
+  Space-separated list of roles (e.g., "system_user system_admin")
+</ResponseField>
+
+```json Response Example
+{
+  "id": "abc123def456",
+  "create_at": 1507840900004,
+  "update_at": 1507840900004,
+  "delete_at": 0,
+  "username": "johndoe",
+  "first_name": "John",
+  "last_name": "Doe",
+  "email": "john.doe@example.com",
+  "email_verified": false,
+  "roles": "system_user",
+  "locale": "en"
+}
+```
+
+## Get User
+
+Retrieve a user's profile information.
+
+```http
+GET /api/v4/users/{user_id}
+```
+
+### Path Parameters
+
+<ParamField path="user_id" type="string" required>
+  User ID or `me` for current user
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/users/me
+```
+
+## Get Users
+
+Retrieve a paginated list of users.
+
+```http
+GET /api/v4/users
+```
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number to retrieve
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="60">
+  Number of users per page (max: 200)
+</ParamField>
+
+<ParamField query="in_team" type="string">
+  Filter users by team ID
+</ParamField>
+
+<ParamField query="in_channel" type="string">
+  Filter users by channel ID
+</ParamField>
+
+<ParamField query="not_in_channel" type="string">
+  Exclude users in specified channel
+</ParamField>
+
+<ParamField query="not_in_team" type="string">
+  Exclude users in specified team
+</ParamField>
+
+<ParamField query="active" type="boolean">
+  Filter for active users only
+</ParamField>
+
+<ParamField query="inactive" type="boolean">
+  Filter for inactive users only
+</ParamField>
+
+<ParamField query="role" type="string">
+  Filter by role (e.g., "system_admin")
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Sort order: "" (username), "last_activity_at", "create_at"
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/users?page=0&per_page=50&in_team=teamid123'
+```
+
+## Update User
+
+Update a user's profile information.
+
+```http
+PUT /api/v4/users/{user_id}
+```
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  User ID (must match path parameter)
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField body="username" type="string" required>
+  User's username
+</ParamField>
+
+<ParamField body="first_name" type="string">
+  User's first name
+</ParamField>
+
+<ParamField body="last_name" type="string">
+  User's last name
+</ParamField>
+
+<ParamField body="nickname" type="string">
+  User's nickname
+</ParamField>
+
+<ParamField body="position" type="string">
+  User's position/title
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/users/me \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "id": "abc123def456",
+    "email": "john.doe@example.com",
+    "username": "johndoe",
+    "first_name": "John",
+    "last_name": "Doe Smith"
+  }'
+```
+
+## Patch User
+
+Partially update a user (only specified fields are updated).
+
+```http
+PUT /api/v4/users/{user_id}/patch
+```
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/users/me/patch \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"first_name": "Jonathan"}'
+```
+
+## Delete User
+
+Deactivate a user account (soft delete).
+
+```http
+DELETE /api/v4/users/{user_id}
+```
+
+<Warning>
+This deactivates the user and revokes all sessions. Use `permanent=true` query parameter for permanent deletion (requires configuration).
+</Warning>
+
+### Example Request
+
+```bash
+curl -X DELETE \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/users/{user_id}
+```
+
+## Search Users
+
+Search for users by username, full name, nickname, or email.
+
+```http
+POST /api/v4/users/search
+```
+
+### Request Body
+
+<ParamField body="term" type="string" required>
+  Search term to match against username, full name, nickname, and email
+</ParamField>
+
+<ParamField body="team_id" type="string">
+  Limit search to specific team
+</ParamField>
+
+<ParamField body="in_channel_id" type="string">
+  Limit search to specific channel
+</ParamField>
+
+<ParamField body="not_in_channel_id" type="string">
+  Exclude users in specific channel
+</ParamField>
+
+<ParamField body="allow_inactive" type="boolean">
+  Include deactivated users in results
+</ParamField>
+
+<ParamField body="limit" type="integer" default="100">
+  Maximum number of users to return
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/users/search \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"term": "john", "limit": 50}'
+```
+
+## Get Users by IDs
+
+Retrieve multiple users by their IDs.
+
+```http
+POST /api/v4/users/ids
+```
+
+### Request Body
+
+Array of user IDs:
+
+```json
+["userid1", "userid2", "userid3"]
+```
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/users/ids \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '["abc123", "def456", "ghi789"]'
+```
+
+## Get User by Username
+
+Retrieve a user by their username.
+
+```http
+GET /api/v4/users/username/{username}
+```
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/users/username/johndoe
+```
+
+## Update User Roles
+
+Update a user's system-level roles.
+
+```http
+PUT /api/v4/users/{user_id}/roles
+```
+
+### Request Body
+
+<ParamField body="roles" type="string" required>
+  Space-separated roles: "system_user", "system_admin", or both
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/users/{user_id}/roles \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"roles": "system_user system_admin"}'
+```
+
+## Update User Profile Image
+
+Set a user's profile picture.
+
+```http
+POST /api/v4/users/{user_id}/image
+```
+
+### Request Body
+
+Multipart form data with image file.
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/users/me/image \
+  -H 'Authorization: Bearer your-token' \
+  -F 'image=@profile.jpg'
+```
+
+## Get User Profile Image
+
+Retrieve a user's profile image.
+
+```http
+GET /api/v4/users/{user_id}/image
+```
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/users/{user_id}/image > profile.jpg
+```
+
+## Activate/Deactivate User
+
+Activate or deactivate a user account.
+
+```http
+PUT /api/v4/users/{user_id}/active
+```
+
+### Request Body
+
+<ParamField body="active" type="boolean" required>
+  `true` to activate, `false` to deactivate
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/users/{user_id}/active \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"active": false}'
+```
+
+## Get User Statistics
+
+Get total user count statistics.
+
+```http
+GET /api/v4/users/stats
+```
+
+### Response
+
+```json
+{
+  "total_users_count": 2450
+}
+```
+
+## Reset Password
+
+Reset a user's password using a recovery code.
+
+```http
+POST /api/v4/users/password/reset
+```
+
+### Request Body
+
+<ParamField body="code" type="string" required>
+  Password recovery code sent via email
+</ParamField>
+
+<ParamField body="new_password" type="string" required>
+  New password for the user
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/users/password/reset \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "code": "recovery-code-123",
+    "new_password": "NewSecurePass123!"
+  }'
+```
+
+## Permissions
+
+Different endpoints require different permissions:
+
+| Operation | Required Permission |
+|-----------|--------------------|
+| Create user | `create_user` or open server |
+| Get user | Active session |
+| Update own user | Be the user |
+| Update other user | `edit_other_users` |
+| Delete user | `edit_other_users` |
+| Update roles | `manage_roles` |
+| Activate/deactivate | `manage_system` or be the user (deactivate only) |
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `400` | Invalid parameters (e.g., invalid email format) |
+| `401` | Not authenticated |
+| `403` | Insufficient permissions |
+| `404` | User not found |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Teams API" icon="users" href="/api/teams">
+    Manage teams and team membership
+  </Card>
+  <Card title="Channels API" icon="hashtag" href="/api/channels">
+    Work with channels
+  </Card>
+</CardGroup>

@@ -1,0 +1,331 @@
+---
+title: Developer Environment Setup
+description: Set up your local development environment for Mattermost
+---
+
+This guide will help you set up a local development environment for contributing to Mattermost.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+<Steps>
+  <Step title="Install Go">
+    Mattermost requires **Go 1.24.13**
+    
+    ```bash
+    # Check your Go version
+    go version
+    ```
+    
+    Download from [golang.org/dl](https://golang.org/dl/)
+  </Step>
+
+  <Step title="Install Node.js">
+    Mattermost requires **Node.js 24.11**
+    
+    ```bash
+    # Check your Node.js version
+    node --version
+    ```
+    
+    Download from [nodejs.org](https://nodejs.org/) or use a version manager like [nvm](https://github.com/nvm-sh/nvm)
+    
+    <Note>
+      The `.nvmrc` file in the repository root specifies the exact Node.js version. If using nvm, run `nvm use` in the repository root.
+    </Note>
+  </Step>
+
+  <Step title="Install Docker">
+    Docker is required to run supporting services (PostgreSQL, Redis, etc.)
+    
+    Download from [docker.com](https://www.docker.com/get-started)
+  </Step>
+
+  <Step title="Install Git">
+    ```bash
+    # Check your Git version
+    git --version
+    ```
+  </Step>
+</Steps>
+
+## Clone the Repository
+
+```bash
+# Clone the repository
+git clone https://github.com/mattermost/mattermost.git
+cd mattermost
+```
+
+<Note>
+  The Mattermost repository is a monorepo containing both the server (Go) and webapp (React) code.
+</Note>
+
+## Build the Server
+
+<Steps>
+  <Step title="Navigate to the server directory">
+    ```bash
+    cd server
+    ```
+  </Step>
+
+  <Step title="Set up Go workspace">
+    This creates a `go.work` file for managing the Go workspace:
+    
+    ```bash
+    make setup-go-work
+    ```
+  </Step>
+
+  <Step title="Validate Go version">
+    ```bash
+    make validate-go-version
+    ```
+  </Step>
+
+  <Step title="Start Docker services">
+    This starts PostgreSQL, Redis, and other required services:
+    
+    ```bash
+    make start-docker
+    ```
+    
+    <Note>
+      Default services include: PostgreSQL, Inbucket (email), Redis, Prometheus, Grafana, Loki, and OpenTelemetry Collector.
+      
+      You can customize enabled services by editing `server/config.mk` or creating `server/config.override.mk`.
+    </Note>
+  </Step>
+</Steps>
+
+## Build the Webapp
+
+<Steps>
+  <Step title="Navigate to the webapp directory">
+    ```bash
+    cd ../webapp
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+    
+    This also runs a postinstall script that builds platform packages (types, client, components, shared).
+  </Step>
+</Steps>
+
+## Running Mattermost Locally
+
+<CodeGroup>
+```bash Server + Webapp (Full Stack)
+# From the server directory
+cd server
+make run
+```
+
+```bash Server Only
+# From the server directory
+cd server
+make run-server
+```
+
+```bash Webapp Only
+# From the webapp directory
+cd webapp
+make run
+# Or use npm directly
+npm run run
+```
+</CodeGroup>
+
+<Note>
+  The `make run` command in the server directory:
+  1. Starts Docker services (PostgreSQL, Redis, etc.)
+  2. Builds and starts the Go server
+  3. Sets up a symlink to the webapp client files
+  
+  The server will be available at `http://localhost:8065`
+</Note>
+
+## Database Setup
+
+### PostgreSQL (Default)
+
+The default configuration uses PostgreSQL, which is automatically started via Docker:
+
+```bash
+# Start PostgreSQL and other services
+make start-docker
+
+# Stop Docker services
+make stop-docker
+
+# Clean up Docker containers and volumes
+make clean-docker
+```
+
+**Default PostgreSQL connection:**
+- Host: `localhost:5432`
+- Database: `mattermost_test`
+- User: `mmuser`
+- Password: `mostest`
+
+### Using pgvector (Optional)
+
+For AI/ML features requiring vector similarity search:
+
+```bash
+# Run with pgvector-enabled PostgreSQL
+make run-pgvector
+```
+
+## Common Make Commands
+
+From the `server/` directory:
+
+<CodeGroup>
+```bash Development
+# Run server and webapp
+make run
+
+# Run server only
+make run-server
+
+# Stop the server
+make stop-server
+
+# Restart the server
+make restart-server
+```
+
+```bash Testing
+# Run all tests
+make test
+
+# Run server tests only
+make test-server
+
+# Run quick tests (no integration tests)
+make test-server-quick
+
+# Run tests with race detection
+make test-server-race
+```
+
+```bash Code Quality
+# Check code style
+make check-style
+
+# Run Go vet
+make vet
+
+# Run golangci-lint
+make golangci-lint
+```
+
+```bash Building
+# Build server binary
+make build
+
+# Build for specific platforms
+make build-linux
+make build-osx
+make build-windows
+```
+
+```bash Cleanup
+# Clean build artifacts
+make clean
+
+# Nuclear option - removes everything including data
+make nuke
+```
+</CodeGroup>
+
+From the `webapp/` directory:
+
+<CodeGroup>
+```bash Development
+# Run webapp dev server
+make run
+
+# Run with webpack-dev-server
+make dev
+
+# Stop webpack
+make stop
+```
+
+```bash Testing & Quality
+# Run tests
+make test
+
+# Check code style
+make check-style
+
+# Fix style issues
+make fix-style
+
+# Check TypeScript types
+make check-types
+```
+
+```bash Building
+# Build for production
+make dist
+
+# Build and package
+make package
+```
+</CodeGroup>
+
+## Debugging
+
+### Debug Server with Delve
+
+```bash
+# Start server with delve debugger
+make debug-server
+
+# Start server with delve in headless mode (for IDE integration)
+make debug-server-headless
+```
+
+The headless debugger listens on port `2345` and can be connected from VS Code or other IDEs.
+
+## Next Steps
+
+- Learn about the [system architecture](/dev/architecture)
+- Read the [contributing guidelines](/dev/contributing)
+- Join the [Mattermost Contributors community](https://community.mattermost.com/core/channels/tickets)
+- Explore the [Developer Documentation](https://developers.mattermost.com/)
+
+## Troubleshooting
+
+### Docker Issues
+
+If you don't want to use Docker:
+
+```bash
+# Set in server/config.override.mk
+MM_NO_DOCKER=true
+```
+
+You'll need to manually set up PostgreSQL and configure the connection in `server/config/config.json`.
+
+### Port Conflicts
+
+If port 8065 is already in use, you can change it using environment variables:
+
+```bash
+export MM_SERVICESETTINGS_LISTENADDRESS=:8066
+make run-server
+```
+
+### Apple Silicon (M1/M2) Macs
+
+The build system automatically detects Apple Silicon and applies necessary overrides for services like Elasticsearch.

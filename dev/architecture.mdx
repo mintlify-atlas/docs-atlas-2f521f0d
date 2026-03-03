@@ -1,0 +1,414 @@
+---
+title: System Architecture
+description: Overview of the Mattermost monorepo structure and system architecture
+---
+
+Mattermost is built as a monorepo containing the Go backend server, React webapp, and API specifications. This guide provides an overview of the codebase structure and key architectural components.
+
+## Monorepo Structure
+
+The Mattermost repository is organized as follows:
+
+```
+mattermost/
+├── server/           # Go backend
+├── webapp/           # React frontend
+├── api/              # API specifications (OpenAPI)
+├── e2e-tests/        # End-to-end tests
+└── tools/            # Development tools
+```
+
+## Server Architecture (Go)
+
+The server is written in Go and follows a layered architecture.
+
+### Directory Structure
+
+```
+server/
+├── cmd/
+│   ├── mattermost/         # Main server entry point
+│   └── mmctl/              # CLI administration tool
+├── channels/               # Core channel functionality
+│   ├── api4/              # REST API v4 handlers
+│   ├── app/               # Business logic layer
+│   ├── store/             # Data access layer
+│   ├── web/               # Web handlers
+│   └── wsapi/             # WebSocket API
+├── platform/               # Platform services
+│   ├── services/          # Shared services
+│   └── shared/            # Shared utilities
+├── public/                 # Public APIs and models
+│   ├── model/             # Data models
+│   ├── plugin/            # Plugin system
+│   └── pluginapi/         # Plugin API helpers
+├── enterprise/             # Enterprise features
+└── build/                  # Build scripts and configs
+```
+
+### Key Components
+
+<Steps>
+  <Step title="API Layer (channels/api4)">
+    RESTful API handlers for the v4 API. Each endpoint handles HTTP requests, validates input, calls the app layer, and returns JSON responses.
+    
+    ```
+    channels/api4/
+    ├── user.go          # User management endpoints
+    ├── channel.go       # Channel endpoints
+    ├── team.go          # Team endpoints
+    ├── post.go          # Post/message endpoints
+    └── ...
+    ```
+  </Step>
+
+  <Step title="Application Layer (channels/app)">
+    Contains business logic and orchestrates operations across different services. This layer is independent of the transport mechanism (HTTP, WebSocket, etc.).
+    
+    Key sub-packages:
+    - `platform/` - Platform-level operations
+    - `email/` - Email notification handling
+    - `slashcommands/` - Slash command processing
+    - `import_export/` - Data import/export
+  </Step>
+
+  <Step title="Store Layer (channels/store)">
+    Data access layer providing an abstraction over the database. Supports PostgreSQL (primary) and includes migration management.
+    
+    ```
+    channels/store/
+    ├── sqlstore/        # SQL implementation
+    └── searchlayer/     # Search functionality
+    ```
+  </Step>
+
+  <Step title="WebSocket API (channels/wsapi)">
+    Real-time bidirectional communication for live updates, typing indicators, and presence information.
+  </Step>
+
+  <Step title="Public Models (public/model)">
+    Shared data structures used throughout the codebase:
+    
+    - User, Team, Channel, Post models
+    - Configuration models
+    - API request/response structures
+    - Validation and serialization logic
+  </Step>
+</Steps>
+
+## Webapp Architecture (React)
+
+The webapp is built with React, Redux, and TypeScript.
+
+### Directory Structure
+
+```
+webapp/
+├── channels/                  # Main web application
+│   └── src/
+│       ├── actions/          # Redux actions
+│       ├── components/       # React components
+│       ├── reducers/         # Redux reducers
+│       ├── selectors/        # Redux selectors
+│       ├── plugins/          # Plugin integration
+│       ├── sass/             # Global styles
+│       ├── utils/            # Utility functions
+│       └── i18n/             # Internationalization
+└── platform/                  # Shared platform packages
+    ├── types/                # TypeScript type definitions
+    ├── client/               # API client library
+    ├── components/           # Reusable UI components
+    ├── mattermost-redux/     # Redux state management
+    └── shared/               # Shared utilities
+```
+
+### Key Components
+
+<Steps>
+  <Step title="Platform Client (platform/client)">
+    The `Client4` class provides a typed interface to the Mattermost REST API. All HTTP requests to the server should go through this client.
+    
+    ```typescript
+    // Example usage
+    import {Client4} from 'mattermost-redux/client';
+    
+    const client = new Client4();
+    const user = await client.getUser(userId);
+    ```
+  </Step>
+
+  <Step title="Redux State (platform/mattermost-redux)">
+    Centralized state management for:
+    - Entities (users, channels, teams, posts)
+    - Request status tracking
+    - WebSocket event handling
+    - Action creators and async thunks
+    
+    <Note>
+      The Redux store follows a normalized structure where entities are stored by ID in lookup tables, with references stored separately.
+    </Note>
+  </Step>
+
+  <Step title="React Components (channels/src/components)">
+    Component organization:
+    - Functional components with hooks (modern approach)
+    - Co-located styles (component.tsx + component.scss)
+    - Tests alongside components (component.test.tsx)
+    
+    **Component patterns:**
+    - Use `useSelector` and `useDispatch` hooks for Redux
+    - Use `React.memo` for expensive components
+    - Use `useCallback` and `useMemo` for optimization
+  </Step>
+
+  <Step title="Platform Components (platform/components)">
+    Reusable UI components shared across the application:
+    - GenericModal
+    - Menu components
+    - Form components
+    - Common widgets
+  </Step>
+</Steps>
+
+## WebSocket Communication
+
+Mattermost uses WebSockets for real-time features:
+
+### Server-Side (Go)
+
+```
+channels/wsapi/
+├── websocket_handler.go    # WebSocket connection handling
+└── *.go                    # Event handlers
+```
+
+**WebSocket events include:**
+- `posted` - New message posted
+- `typing` - User typing indicator
+- `user_updated` - User profile changes
+- `channel_updated` - Channel metadata changes
+- `status_change` - User presence updates
+
+### Client-Side (React)
+
+```typescript
+// WebSocket connection is managed by redux
+import {websocketConnect} from 'mattermost-redux/actions/websocket';
+
+// Dispatch to connect
+dispatch(websocketConnect());
+
+// Events are automatically handled by Redux middleware
+// and update the store accordingly
+```
+
+<Note>
+  WebSocket reconnection is handled automatically with exponential backoff. The client maintains a persistent connection and recovers gracefully from network interruptions.
+</Note>
+
+## Plugin System Architecture
+
+Mattermost supports server and webapp plugins to extend functionality.
+
+### Server Plugin Architecture
+
+```
+server/public/plugin/
+├── api.go              # Plugin API interface
+├── hooks.go            # Lifecycle hooks
+├── client_rpc.go       # RPC client for plugins
+└── environment.go      # Plugin environment management
+```
+
+**Plugin capabilities:**
+- Hook into server events (message posted, user joined, etc.)
+- Register custom API endpoints
+- Access the Mattermost API via plugin API
+- Run as separate processes communicating via RPC
+
+**Plugin lifecycle:**
+1. Plugin binary loaded from `plugins/` directory
+2. Plugin initialized with `OnActivate` hook
+3. Plugin registers hooks and HTTP handlers
+4. Plugin communicates with server via RPC
+5. Plugin cleaned up with `OnDeactivate` hook
+
+### Webapp Plugin Architecture
+
+Webapp plugins are JavaScript bundles that integrate with the webapp:
+
+```javascript
+// Plugin entry point
+export default class Plugin {
+    initialize(registry, store) {
+        // Register components, routes, etc.
+        registry.registerPostTypeComponent(
+            'custom_type',
+            CustomPostComponent
+        );
+    }
+}
+```
+
+**Plugin integration points:**
+- Custom post types
+- Channel header buttons
+- Root components
+- Slash commands
+- Webapp menu items
+- Reducer extensions
+
+### Plugin Communication
+
+<CodeGroup>
+```go Server Plugin
+// Server plugin making API calls
+user, err := p.API.GetUser(userID)
+if err != nil {
+    return err
+}
+
+// Trigger a webhook
+p.API.PublishWebSocketEvent("custom_event", map[string]interface{}{
+    "data": "value",
+}, &model.WebsocketBroadcast{})
+```
+
+```javascript Webapp Plugin
+// Webapp plugin receiving events
+registry.registerWebSocketEventHandler(
+    'custom_event',
+    (event) => {
+        console.log('Received:', event.data);
+    }
+);
+```
+</CodeGroup>
+
+## API Specifications
+
+The `api/` directory contains OpenAPI specifications:
+
+```
+api/
+├── v4/
+│   ├── source/           # OpenAPI YAML files
+│   └── html/             # Generated API documentation
+└── playbooks/            # Playbooks API specs
+```
+
+These specifications are used to:
+- Generate API documentation
+- Validate API requests/responses
+- Generate client SDKs
+
+## Data Flow Example
+
+Here's how a typical request flows through the system:
+
+<Steps>
+  <Step title="User action in webapp">
+    User clicks "Send" on a message
+    
+    ```typescript
+    // Component dispatches Redux action
+    dispatch(createPost(post));
+    ```
+  </Step>
+
+  <Step title="Redux action creator">
+    Action creator calls the API client
+    
+    ```typescript
+    // actions/posts.ts
+    export function createPost(post) {
+        return async (dispatch) => {
+            const created = await Client4.createPost(post);
+            dispatch({type: ActionTypes.RECEIVED_POST, data: created});
+            return {data: created};
+        };
+    }
+    ```
+  </Step>
+
+  <Step title="HTTP request to server">
+    Client4 makes POST request to `/api/v4/posts`
+  </Step>
+
+  <Step title="API handler (server)">
+    ```go
+    // channels/api4/post.go
+    func createPost(c *Context, w http.ResponseWriter, r *http.Request) {
+        post, err := c.App.CreatePost(c.AppContext, post, c.GetSiteURL().String(), true)
+        // ...
+    }
+    ```
+  </Step>
+
+  <Step title="App layer (business logic)">
+    ```go
+    // channels/app/post.go
+    func (a *App) CreatePost(c *request.Context, post *model.Post, ...) (*model.Post, error) {
+        // Validation, permission checks, plugins hooks
+        rpost, err := a.Srv().Store().Post().Save(post)
+        // Send WebSocket event
+        a.PublishWebSocketEvent(...)
+    }
+    ```
+  </Step>
+
+  <Step title="Store layer (database)">
+    ```go
+    // channels/store/sqlstore/post_store.go
+    func (s *SqlPostStore) Save(post *model.Post) (*model.Post, error) {
+        // SQL INSERT
+        return s.GetReplica().Insert(post)
+    }
+    ```
+  </Step>
+
+  <Step title="WebSocket broadcast">
+    Server broadcasts `posted` event to connected clients
+  </Step>
+
+  <Step title="Webapp receives update">
+    Redux middleware processes WebSocket event and updates store
+    
+    ```typescript
+    // Redux reducer updates state
+    // React components re-render with new post
+    ```
+  </Step>
+</Steps>
+
+## Build System
+
+### Server Build
+
+- **Build tool**: Go toolchain + Make
+- **Main binary**: `cmd/mattermost/mattermost`
+- **Build tags**: `enterprise`, `sourceavailable`
+- **Output**: Single statically-linked binary
+
+### Webapp Build
+
+- **Build tool**: Webpack 5
+- **Entry points**: Multiple bundles for code splitting
+- **Output**: Static assets in `channels/dist/`
+- **Development**: Webpack dev server with hot reload
+
+## Enterprise vs Team Edition
+
+The codebase supports both Team and Enterprise editions:
+
+- **Team Edition**: Open source, MIT licensed
+- **Enterprise Edition**: Includes additional features from `server/enterprise/`
+
+Enterprise features are conditionally compiled using build tags and runtime checks.
+
+## Next Steps
+
+- Set up your [development environment](/dev/setup)
+- Read the [contributing guidelines](/dev/contributing)
+- Explore the [Plugin Developer Documentation](https://developers.mattermost.com/integrate/plugins/)
+- Review the [API Documentation](https://api.mattermost.com/)

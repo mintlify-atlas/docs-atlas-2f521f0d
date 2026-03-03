@@ -1,0 +1,512 @@
+---
+title: Webhooks
+description: Send and receive messages with incoming and outgoing webhooks
+---
+
+Webhooks provide a simple way to integrate external services with Mattermost. There are two types: incoming webhooks for receiving messages from external services, and outgoing webhooks for sending messages to external services.
+
+## Incoming Webhooks
+
+Incoming webhooks allow external services to post messages to Mattermost channels.
+
+### Creating an Incoming Webhook
+
+<Steps>
+  <Step title="Navigate to integrations">
+    Go to **Main Menu** > **Integrations** > **Incoming Webhooks**
+  </Step>
+  
+  <Step title="Add webhook">
+    Click **Add Incoming Webhook**
+  </Step>
+  
+  <Step title="Configure webhook">
+    - **Title**: Descriptive name for the webhook
+    - **Description**: Purpose of the webhook
+    - **Channel**: Default channel for posts
+    - **Lock to channel**: Prevent URL parameter overrides
+  </Step>
+  
+  <Step title="Copy webhook URL">
+    Save the generated webhook URL - you'll need this for your integration
+  </Step>
+</Steps>
+
+### Sending Messages
+
+<Tabs>
+  <Tab title="cURL">
+    ```bash
+    curl -X POST \
+      https://your-mattermost-server.com/hooks/xxx-generatedkey-xxx \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "text": "Hello, this is a message from an external service!"
+      }'
+    ```
+  </Tab>
+  
+  <Tab title="Python">
+    ```python
+    import requests
+    import json
+
+    webhook_url = 'https://your-mattermost-server.com/hooks/xxx-generatedkey-xxx'
+    
+    payload = {
+        'text': 'Hello from Python!'
+    }
+    
+    response = requests.post(
+        webhook_url,
+        data=json.dumps(payload),
+        headers={'Content-Type': 'application/json'}
+    )
+    
+    print(f'Status: {response.status_code}')
+    ```
+  </Tab>
+  
+  <Tab title="Node.js">
+    ```javascript
+    const axios = require('axios');
+
+    const webhookUrl = 'https://your-mattermost-server.com/hooks/xxx-generatedkey-xxx';
+    
+    const payload = {
+      text: 'Hello from Node.js!'
+    };
+    
+    axios.post(webhookUrl, payload)
+      .then(response => {
+        console.log('Posted successfully');
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+    ```
+  </Tab>
+</Tabs>
+
+### Message Formatting
+
+#### Basic Message
+
+```json
+{
+  "text": "This is a basic message"
+}
+```
+
+#### Rich Message with Attachments
+
+```json
+{
+  "text": "### Deployment Status\n\nProduction deployment completed",
+  "username": "Deploy Bot",
+  "icon_url": "https://example.com/icon.png",
+  "attachments": [
+    {
+      "fallback": "Deployment details",
+      "color": "#00FF00",
+      "pretext": "Deployment Summary",
+      "text": "Version 2.5.0 deployed successfully",
+      "fields": [
+        {
+          "title": "Environment",
+          "value": "Production",
+          "short": true
+        },
+        {
+          "title": "Duration",
+          "value": "3m 42s",
+          "short": true
+        },
+        {
+          "title": "Status",
+          "value": "✅ Success"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Payload Parameters
+
+<ParamField path="text" type="string" required>
+  The message text, supporting Markdown formatting
+</ParamField>
+
+<ParamField path="channel" type="string">
+  Override default channel (requires webhook not locked to channel)
+</ParamField>
+
+<ParamField path="username" type="string">
+  Display name for the webhook bot
+</ParamField>
+
+<ParamField path="icon_url" type="string">
+  URL to an image to use as the bot's avatar
+</ParamField>
+
+<ParamField path="icon_emoji" type="string">
+  Emoji to use as the bot's avatar (e.g., `:ghost:`)
+</ParamField>
+
+<ParamField path="attachments" type="array">
+  Array of rich message attachments
+</ParamField>
+
+<ParamField path="type" type="string">
+  Message type (optional, for custom rendering)
+</ParamField>
+
+<ParamField path="props" type="object">
+  Additional properties for custom post types
+</ParamField>
+
+### Attachment Fields
+
+<ParamField path="fallback" type="string">
+  Plain text summary for clients that don't support attachments
+</ParamField>
+
+<ParamField path="color" type="string">
+  Hex color code for the attachment border (e.g., `#FF0000`)
+</ParamField>
+
+<ParamField path="pretext" type="string">
+  Text above the attachment
+</ParamField>
+
+<ParamField path="text" type="string">
+  Main text of the attachment
+</ParamField>
+
+<ParamField path="author_name" type="string">
+  Author name displayed in attachment
+</ParamField>
+
+<ParamField path="author_icon" type="string">
+  URL to author's icon
+</ParamField>
+
+<ParamField path="author_link" type="string">
+  URL to link author name
+</ParamField>
+
+<ParamField path="title" type="string">
+  Attachment title
+</ParamField>
+
+<ParamField path="title_link" type="string">
+  URL to link the title
+</ParamField>
+
+<ParamField path="fields" type="array">
+  Array of field objects with `title`, `value`, and optional `short` (boolean)
+</ParamField>
+
+<ParamField path="image_url" type="string">
+  URL to image to display in attachment
+</ParamField>
+
+<ParamField path="thumb_url" type="string">
+  URL to thumbnail image
+</ParamField>
+
+## Outgoing Webhooks
+
+Outgoing webhooks send message data to external services when trigger conditions are met.
+
+### Creating an Outgoing Webhook
+
+<Steps>
+  <Step title="Navigate to integrations">
+    Go to **Main Menu** > **Integrations** > **Outgoing Webhooks**
+  </Step>
+  
+  <Step title="Add webhook">
+    Click **Add Outgoing Webhook**
+  </Step>
+  
+  <Step title="Configure webhook">
+    - **Title**: Descriptive name
+    - **Description**: Purpose
+    - **Channel**: Channel to monitor (optional, leave blank for all public channels)
+    - **Trigger Words**: Words that activate the webhook
+    - **Trigger When**: Start of message or exact match
+    - **Callback URLs**: Your service endpoint(s)
+  </Step>
+  
+  <Step title="Save and note token">
+    Save the webhook and note the generated token for verification
+  </Step>
+</Steps>
+
+<Note>
+  Outgoing webhooks only work in **public channels**. They cannot monitor private channels or direct messages.
+</Note>
+
+### Receiving Webhook Payloads
+
+When a message matches the trigger, Mattermost sends a POST request:
+
+```json
+{
+  "token": "xxx-webhook-token-xxx",
+  "team_id": "abc123",
+  "team_domain": "myteam",
+  "channel_id": "def456",
+  "channel_name": "town-square",
+  "timestamp": 1234567890,
+  "user_id": "ghi789",
+  "user_name": "john.doe",
+  "post_id": "jkl012",
+  "text": "!weather Seattle",
+  "trigger_word": "!weather",
+  "file_ids": "file1,file2"
+}
+```
+
+### Responding to Webhooks
+
+Your service can respond with a message to post back to the channel:
+
+<Tabs>
+  <Tab title="Python (Flask)">
+    ```python
+    from flask import Flask, request, jsonify
+
+    app = Flask(__name__)
+    WEBHOOK_TOKEN = 'xxx-webhook-token-xxx'
+
+    @app.route('/webhook', methods=['POST'])
+    def webhook():
+        data = request.json
+        
+        # Verify token
+        if data.get('token') != WEBHOOK_TOKEN:
+            return 'Invalid token', 403
+        
+        # Extract message and trigger
+        text = data.get('text', '')
+        trigger_word = data.get('trigger_word', '')
+        
+        # Process command
+        response_text = process_command(text, trigger_word)
+        
+        # Return response
+        return jsonify({
+            'text': response_text,
+            'username': 'Weather Bot',
+            'icon_url': 'https://example.com/weather-icon.png'
+        })
+
+    def process_command(text, trigger):
+        # Your logic here
+        city = text.replace(trigger, '').strip()
+        return f'Weather for {city}: Sunny, 72°F'
+
+    if __name__ == '__main__':
+        app.run(port=5000)
+    ```
+  </Tab>
+  
+  <Tab title="Node.js (Express)">
+    ```javascript
+    const express = require('express');
+    const app = express();
+
+    const WEBHOOK_TOKEN = 'xxx-webhook-token-xxx';
+
+    app.use(express.json());
+
+    app.post('/webhook', (req, res) => {
+      const { token, text, trigger_word } = req.body;
+      
+      // Verify token
+      if (token !== WEBHOOK_TOKEN) {
+        return res.status(403).send('Invalid token');
+      }
+      
+      // Process command
+      const city = text.replace(trigger_word, '').trim();
+      
+      // Send response
+      res.json({
+        text: `Weather for ${city}: Sunny, 72°F`,
+        username: 'Weather Bot',
+        icon_url: 'https://example.com/weather-icon.png'
+      });
+    });
+
+    app.listen(5000, () => {
+      console.log('Webhook server running on port 5000');
+    });
+    ```
+  </Tab>
+</Tabs>
+
+### Response Format
+
+Your webhook response can include the same fields as incoming webhooks:
+
+```json
+{
+  "text": "Response message",
+  "username": "Bot Name",
+  "icon_url": "https://example.com/icon.png",
+  "response_type": "in_channel",
+  "attachments": []
+}
+```
+
+<ParamField path="response_type" type="string">
+  Set to `"in_channel"` to post publicly, or `"ephemeral"` for a private response (default: `"in_channel"`)
+</ParamField>
+
+## Best Practices
+
+### Security
+
+<Warning>
+  **Always validate webhook tokens** to prevent unauthorized access
+</Warning>
+
+```python
+def verify_webhook(request_data, expected_token):
+    """Verify webhook token"""
+    if request_data.get('token') != expected_token:
+        raise ValueError('Invalid webhook token')
+```
+
+### Performance
+
+<Tip>
+  Outgoing webhook responses must be returned within **3 seconds**. For longer operations, use asynchronous processing.
+</Tip>
+
+```python
+import threading
+
+def async_process(data):
+    # Long-running task
+    pass
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.json
+    
+    # Start async processing
+    thread = threading.Thread(target=async_process, args=(data,))
+    thread.start()
+    
+    # Return immediate response
+    return jsonify({'text': 'Processing your request...'})
+```
+
+### Error Handling
+
+```python
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    try:
+        data = request.json
+        verify_webhook(data, WEBHOOK_TOKEN)
+        
+        result = process_command(data)
+        return jsonify(result)
+        
+    except ValueError as e:
+        return str(e), 403
+    except Exception as e:
+        return jsonify({
+            'text': f'Error: {str(e)}',
+            'username': 'Error Bot'
+        }), 200  # Return 200 to prevent retries
+```
+
+## Examples
+
+### GitHub Integration
+
+```python
+@app.route('/github-webhook', methods=['POST'])
+def github_webhook():
+    event = request.headers.get('X-GitHub-Event')
+    data = request.json
+    
+    if event == 'push':
+        commits = data['commits']
+        repo = data['repository']['name']
+        
+        text = f"**{len(commits)} new commit(s)** to {repo}\n\n"
+        for commit in commits:
+            text += f"- {commit['message']} by {commit['author']['name']}\n"
+        
+        # Post to Mattermost
+        requests.post(WEBHOOK_URL, json={'text': text})
+    
+    return 'OK', 200
+```
+
+### Monitoring Alerts
+
+```python
+def send_alert(severity, message):
+    colors = {
+        'critical': '#FF0000',
+        'warning': '#FFA500',
+        'info': '#00FF00'
+    }
+    
+    payload = {
+        'text': f'**Alert**: {message}',
+        'username': 'Monitoring',
+        'attachments': [{
+            'color': colors.get(severity, '#808080'),
+            'fields': [
+                {'title': 'Severity', 'value': severity.upper(), 'short': True},
+                {'title': 'Time', 'value': datetime.now().isoformat(), 'short': True}
+            ]
+        }]
+    }
+    
+    requests.post(WEBHOOK_URL, json=payload)
+```
+
+## Troubleshooting
+
+<Accordion title="Webhook not triggering">
+  - Verify webhook is enabled
+  - Check trigger words match message start
+  - Ensure message is in public channel
+  - Confirm channel matches webhook configuration
+</Accordion>
+
+<Accordion title="403 Forbidden errors">
+  - Verify webhook URL is correct
+  - Check token validation in your code
+  - Ensure webhook hasn't been deleted
+</Accordion>
+
+<Accordion title="Messages not formatting correctly">
+  - Validate JSON syntax
+  - Check Markdown formatting
+  - Verify attachment structure
+  - Test with simple message first
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Slash Commands" icon="terminal" href="/integrations/slash-commands">
+    Create custom commands
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/webhooks">
+    Webhook API documentation
+  </Card>
+</CardGroup>

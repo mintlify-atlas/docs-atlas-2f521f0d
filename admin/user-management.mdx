@@ -1,0 +1,588 @@
+---
+title: User Management
+description: Creating users, managing roles, permissions, and authentication in Mattermost
+---
+
+Mattermost provides comprehensive user management capabilities including user creation, role-based access control, team/channel permissions, and multiple authentication methods.
+
+## User Creation
+
+### Creating Users via CLI
+
+<Steps>
+  <Step title="Create a User">
+    Use `mmctl` to create users:
+    
+    ```bash
+    # Create a regular user
+    mmctl user create --email user@example.com \
+      --username john.doe \
+      --password SecurePass123! \
+      --firstname John \
+      --lastname Doe
+    
+    # Create a system admin
+    mmctl user create --email admin@example.com \
+      --username admin \
+      --password AdminPass123! \
+      --system-admin
+    ```
+  </Step>
+  
+  <Step title="Verify User Creation">
+    Confirm the user was created:
+    
+    ```bash
+    mmctl user search john.doe
+    ```
+  </Step>
+  
+  <Step title="Add to Team">
+    Add the user to a team:
+    
+    ```bash
+    mmctl team users add myteam john.doe
+    ```
+  </Step>
+</Steps>
+
+### Bulk User Import
+
+Import multiple users from a JSON file:
+
+```json
+[
+  {
+    "type": "user",
+    "user": {
+      "username": "john.doe",
+      "email": "john.doe@example.com",
+      "first_name": "John",
+      "last_name": "Doe",
+      "password": "SecurePass123!",
+      "position": "Developer",
+      "roles": "system_user",
+      "teams": [
+        {
+          "name": "engineering",
+          "roles": "team_user"
+        }
+      ]
+    }
+  }
+]
+```
+
+```bash
+# Import users
+mmctl import upload users.json
+```
+
+## Roles and Permissions
+
+Mattermost uses a role-based permission system with hierarchical scopes.
+
+### System-Level Roles
+
+<CodeGroup>
+```text System Admin
+Role ID: system_admin
+
+Full administrative access:
+- Manage all users, teams, and channels
+- Access System Console
+- Modify system configuration
+- View all content
+- Manage integrations and plugins
+```
+
+```text System User Manager
+Role ID: system_user_manager
+
+User management permissions:
+- Create, edit, and deactivate users
+- Manage user roles (except system admin)
+- View user details
+- Reset passwords
+- Manage teams and channels
+```
+
+```text System Read-Only Admin
+Role ID: system_read_only_admin
+
+Read-only access to:
+- System Console (view only)
+- User management (view only)
+- Reporting and analytics
+- Compliance exports
+```
+
+```text System User
+Role ID: system_user
+
+Standard user permissions:
+- Join teams (if allowed)
+- Create direct messages
+- Upload files
+- Use integrations
+```
+
+```text System Guest
+Role ID: system_guest
+
+Restricted permissions:
+- Limited to specific channels
+- Cannot create teams
+- Cannot discover channels
+- Cannot invite users
+```
+</CodeGroup>
+
+### Team-Level Roles
+
+```bash
+# Team Admin
+- Manage team settings
+- Add/remove team members
+- Manage team channels
+- Set team roles
+
+# Team User
+- Create public/private channels
+- Join public channels
+- Invite users to team
+- Post in channels they're members of
+
+# Team Guest
+- Limited to assigned channels
+- Cannot invite users
+- Cannot create channels
+```
+
+### Channel-Level Roles
+
+```bash
+# Channel Admin
+- Manage channel settings
+- Add/remove members
+- Delete channel
+- Archive channel
+
+# Channel User
+- Post messages
+- Upload files
+- React to messages
+- Create threads
+
+# Channel Guest
+- Read and post messages
+- Limited to this channel only
+```
+
+## Managing User Roles
+
+### Promote to System Admin
+
+```bash
+# Grant system admin role
+mmctl user role assign john.doe system_admin
+
+# Verify role assignment
+mmctl user get john.doe --json | jq '.roles'
+```
+
+### Team Role Management
+
+```bash
+# Make user a team admin
+mmctl team users add myteam john.doe --role team_admin
+
+# Demote from team admin
+mmctl team users add myteam john.doe --role team_user
+```
+
+### Channel Role Management
+
+```bash
+# Add as channel admin
+mmctl channel users add myteam:engineering john.doe --role channel_admin
+
+# List channel members
+mmctl channel users list myteam:engineering
+```
+
+## Authentication Methods
+
+Mattermost supports multiple authentication providers.
+
+### Email/Password Authentication
+
+Default authentication method:
+
+```json
+{
+  "EmailSettings": {
+    "EnableSignUpWithEmail": true,
+    "EnableSignInWithEmail": true,
+    "EnableSignInWithUsername": true,
+    "RequireEmailVerification": true
+  },
+  "PasswordSettings": {
+    "MinimumLength": 10,
+    "Lowercase": true,
+    "Number": true,
+    "Uppercase": true,
+    "Symbol": true
+  },
+  "ServiceSettings": {
+    "MaximumLoginAttempts": 10
+  }
+}
+```
+
+<Warning>
+  **Password Security:**
+  - Minimum length: 5-72 characters
+  - Default recommended: 10+ characters
+  - Failed login attempts tracked per user
+  - Account locked after max attempts (default: 10)
+</Warning>
+
+### LDAP Authentication
+
+Integrate with Active Directory or OpenLDAP:
+
+```json
+{
+  "LdapSettings": {
+    "Enable": true,
+    "EnableSync": true,
+    "LdapServer": "ldap.example.com",
+    "LdapPort": 389,
+    "ConnectionSecurity": "STARTTLS",
+    "BaseDN": "ou=Users,dc=example,dc=com",
+    "BindUsername": "cn=admin,dc=example,dc=com",
+    "BindPassword": "password",
+    "UserFilter": "(objectClass=user)",
+    "EmailAttribute": "mail",
+    "UsernameAttribute": "sAMAccountName",
+    "IdAttribute": "objectGUID",
+    "FirstNameAttribute": "givenName",
+    "LastNameAttribute": "sn",
+    "LoginFieldName": "AD/LDAP Username",
+    "MaximumLoginAttempts": 10,
+    "SyncIntervalMinutes": 60
+  }
+}
+```
+
+**Test LDAP Connection:**
+
+<Steps>
+  <Step title="Configure LDAP">
+    Set LDAP settings in config.json or System Console
+  </Step>
+  
+  <Step title="Test Connection">
+    ```bash
+    mmctl ldap test
+    ```
+  </Step>
+  
+  <Step title="Sync Users">
+    ```bash
+    # Manual sync
+    mmctl ldap sync
+    
+    # Schedule automatic sync (configured in LdapSettings.SyncIntervalMinutes)
+    ```
+  </Step>
+  
+  <Step title="Verify Users">
+    ```bash
+    mmctl user search "@ldap.example.com"
+    ```
+  </Step>
+</Steps>
+
+### SAML 2.0 Authentication
+
+Enterprise feature for SSO integration:
+
+```json
+{
+  "SamlSettings": {
+    "Enable": true,
+    "EnableSyncWithLdap": false,
+    "Verify": true,
+    "Encrypt": true,
+    "SignRequest": false,
+    "IdpUrl": "https://idp.example.com/saml/sso",
+    "IdpDescriptorUrl": "https://idp.example.com/saml/metadata",
+    "IdpMetadataUrl": "https://idp.example.com/saml/metadata.xml",
+    "ServiceProviderIdentifier": "https://mattermost.example.com",
+    "AssertionConsumerServiceURL": "https://mattermost.example.com/login/sso/saml",
+    "SignatureAlgorithm": "RSAwithSHA256",
+    "CanonicalAlgorithm": "Canonical1.0",
+    "IdAttribute": "id",
+    "EmailAttribute": "email",
+    "UsernameAttribute": "username",
+    "FirstNameAttribute": "firstName",
+    "LastNameAttribute": "lastName"
+  }
+}
+```
+
+**Certificate Management:**
+
+```bash
+# Upload SAML certificates
+mmctl saml certificate upload-idp --cert /path/to/idp.crt
+mmctl saml certificate upload-public --cert /path/to/public.crt
+mmctl saml certificate upload-private --cert /path/to/private.key
+
+# Check certificate status
+mmctl saml certificate status
+```
+
+### OAuth 2.0 (GitLab, Google, Office365)
+
+<CodeGroup>
+```json GitLab OAuth
+{
+  "GitLabSettings": {
+    "Enable": true,
+    "Id": "your-gitlab-app-id",
+    "Secret": "your-gitlab-app-secret",
+    "UserApiEndpoint": "https://gitlab.example.com/api/v4/user",
+    "AuthEndpoint": "https://gitlab.example.com/oauth/authorize",
+    "TokenEndpoint": "https://gitlab.example.com/oauth/token"
+  }
+}
+```
+
+```json Google OAuth
+{
+  "GoogleSettings": {
+    "Enable": true,
+    "Id": "your-google-client-id.apps.googleusercontent.com",
+    "Secret": "your-google-client-secret",
+    "Scope": "profile email",
+    "AuthEndpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+    "TokenEndpoint": "https://www.googleapis.com/oauth2/v4/token",
+    "UserApiEndpoint": "https://people.googleapis.com/v1/people/me?personFields=names,emailAddresses,nicknames,metadata"
+  }
+}
+```
+
+```json Office365 OAuth
+{
+  "Office365Settings": {
+    "Enable": true,
+    "Id": "your-office365-app-id",
+    "Secret": "your-office365-app-secret",
+    "Scope": "User.Read",
+    "AuthEndpoint": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    "TokenEndpoint": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    "UserApiEndpoint": "https://graph.microsoft.com/v1.0/me"
+  }
+}
+```
+</CodeGroup>
+
+## Multi-Factor Authentication (MFA)
+
+Add an extra layer of security:
+
+```json
+{
+  "ServiceSettings": {
+    "EnableMultifactorAuthentication": true,
+    "EnforceMultifactorAuthentication": false
+  }
+}
+```
+
+**Enable MFA for a User:**
+
+```bash
+# User must enable via Account Settings > Security > Multi-factor Authentication
+# Or admin can enforce:
+mmctl config set ServiceSettings.EnforceMultifactorAuthentication true
+```
+
+## User Lifecycle Management
+
+### Deactivate Users
+
+```bash
+# Deactivate a user
+mmctl user deactivate john.doe
+
+# Deactivate multiple users
+mmctl user deactivate john.doe jane.smith bob.wilson
+
+# Verify deactivation
+mmctl user get john.doe --json | jq '.delete_at'
+```
+
+### Reactivate Users
+
+```bash
+# Reactivate a deactivated user
+mmctl user activate john.doe
+```
+
+### Delete Users
+
+<Warning>
+  User deletion is permanent and removes all user data including:
+  - Posts and messages
+  - File uploads
+  - Direct message history
+  - Profile information
+</Warning>
+
+```bash
+# Permanently delete user (requires confirmation)
+mmctl user delete john.doe --confirm
+```
+
+### Password Management
+
+```bash
+# Reset user password
+mmctl user reset-password john.doe --password NewSecurePass123!
+
+# Force password change on next login
+mmctl user update-password john.doe --password TempPass123! --must-change
+```
+
+## Guest Accounts
+
+Guest accounts provide restricted access:
+
+```bash
+# Demote user to guest
+mmctl user demote john.doe
+
+# Promote guest to user
+mmctl user promote john.guest
+
+# Create new guest
+mmctl user create --email guest@external.com \
+  --username guest.user \
+  --password GuestPass123! \
+  --guest
+```
+
+**Guest Restrictions:**
+- Cannot create teams
+- Cannot discover public channels
+- Limited to explicitly added channels
+- Cannot invite other users
+- Cannot access System Console
+
+## User Access Tokens
+
+Create tokens for API access:
+
+```bash
+# Enable user access tokens
+mmctl config set ServiceSettings.EnableUserAccessTokens true
+
+# Create token for user
+mmctl token generate john.doe "API Integration Token"
+
+# List user tokens
+mmctl token list john.doe
+
+# Revoke token
+mmctl token revoke token_id_here
+```
+
+## Session Management
+
+### View Active Sessions
+
+```bash
+# List user sessions
+mmctl user sessions john.doe
+
+# Revoke all sessions for user
+mmctl user revoke-sessions john.doe
+```
+
+### Session Configuration
+
+```json
+{
+  "ServiceSettings": {
+    "SessionLengthWebInHours": 720,
+    "SessionLengthMobileInHours": 720,
+    "SessionLengthSSOInHours": 720,
+    "SessionCacheInMinutes": 10,
+    "SessionIdleTimeoutInMinutes": 43200,
+    "ExtendSessionLengthWithActivity": true,
+    "TerminateSessionsOnPasswordChange": true
+  }
+}
+```
+
+## Troubleshooting
+
+### User Cannot Login
+
+<Steps>
+  <Step title="Check Account Status">
+    ```bash
+    mmctl user get john.doe --json | jq '{username, delete_at, auth_service, failed_attempts}'
+    ```
+  </Step>
+  
+  <Step title="Reset Failed Attempts">
+    ```bash
+    # Reactivate if deactivated
+    mmctl user activate john.doe
+    
+    # Reset password if needed
+    mmctl user reset-password john.doe --password NewPass123!
+    ```
+  </Step>
+  
+  <Step title="Check Authentication Method">
+    Verify the user is using correct auth method (email, LDAP, SAML, OAuth)
+  </Step>
+</Steps>
+
+### LDAP Sync Issues
+
+```bash
+# Check LDAP connectivity
+mmctl ldap test
+
+# Force manual sync
+mmctl ldap sync
+
+# Check sync job status
+mmctl ldap job list
+```
+
+### Permission Denied
+
+```bash
+# Check user roles
+mmctl user get john.doe --json | jq '.roles'
+
+# Verify team membership
+mmctl team users list myteam | grep john.doe
+
+# Check channel membership
+mmctl channel users list myteam:engineering | grep john.doe
+```
+
+## Related Resources
+
+- [Configuration](/admin/configuration)
+- [Security](/admin/security)
+- [Monitoring](/admin/monitoring)

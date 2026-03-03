@@ -1,0 +1,542 @@
+---
+title: Workflow Automation
+description: Streamline processes and automate tasks with Mattermost Playbooks and workflows
+---
+
+Mattermost provides powerful workflow automation capabilities through the Playbooks plugin, enabling teams to standardize processes, automate repetitive tasks, and ensure consistent execution of critical procedures.
+
+## What are Playbooks?
+
+<CardGroup cols={2}>
+  <Card title="Process Templates" icon="book">
+    Create reusable templates for recurring workflows and procedures
+  </Card>
+  
+  <Card title="Task Automation" icon="robot">
+    Automate actions based on triggers and conditions
+  </Card>
+  
+  <Card title="Collaboration" icon="users">
+    Coordinate team activities with checklists and assignments
+  </Card>
+  
+  <Card title="Analytics" icon="chart-line">
+    Track metrics and improve processes with retrospectives
+  </Card>
+</CardGroup>
+
+## Workflow Use Cases
+
+Playbooks excel at standardizing and automating various business processes:
+
+### Incident Response
+
+Manage outages and critical issues:
+- Automated incident channel creation
+- Pre-defined response checklists
+- Stakeholder notifications
+- Status updates and war room management
+- Post-incident retrospectives
+
+**Example Incident Workflow**:
+```
+1. User reports production down
+2. /incident start production-outage
+3. Playbook automatically:
+   - Creates dedicated incident channel
+   - Notifies on-call team
+   - Posts initial checklist
+   - Updates status page
+4. Team follows checklist:
+   - Check service health
+   - Review recent deployments
+   - Analyze error logs
+   - Implement fix
+   - Verify resolution
+5. Close incident with retrospective
+```
+
+### Employee Onboarding
+
+Streamline new hire setup:
+- Welcome message automation
+- Equipment and access checklists
+- Training module tracking
+- Introductions to team members
+- 30/60/90 day check-ins
+
+### Release Management
+
+Coordinate software releases:
+- Pre-release checklist verification
+- Deployment coordination
+- Rollback procedures
+- Communication templates
+- Success metrics tracking
+
+### Customer Escalations
+
+Handle critical customer issues:
+- Escalation criteria and triggers
+- Response time tracking
+- Cross-team coordination
+- Customer communication templates
+- Resolution documentation
+
+### Change Management
+
+Manage infrastructure changes:
+- Change approval workflows
+- Risk assessment checklists
+- Rollback plans
+- Stakeholder notifications
+- Post-change verification
+
+## Creating Playbooks
+
+### Playbook Components
+
+A playbook consists of:
+
+**1. Checklists**
+- Ordered tasks to complete
+- Assignable to team members
+- Optional vs. required tasks
+- Slash command shortcuts
+- Task descriptions and links
+
+**2. Triggers**
+- Keywords that start playbook runs
+- Slash commands
+- Webhook integrations
+- Scheduled runs
+
+**3. Actions**
+- Create dedicated channel
+- Invite team members
+- Post welcome message
+- Update channel topic
+- Webhook notifications
+- Status page updates
+
+**4. Permissions**
+- Who can view the playbook
+- Who can start runs
+- Who can edit the playbook
+- Public or private playbooks
+
+**5. Retrospective**
+- Metrics to track
+- Questions for team
+- Timeline of events
+- Lessons learned
+
+### Building a Playbook
+
+1. Navigate to **Playbooks** in the product menu
+2. Click **Create Playbook**
+3. Configure playbook details:
+
+**General Information**:
+```
+Name: Production Incident Response
+Description: Handle production outages and critical bugs
+Public/Private: Public to team
+```
+
+**Checklists**:
+```
+✓ Initial Response
+  □ Acknowledge incident (assigned to: On-call engineer)
+  □ Create status page incident
+  □ Notify stakeholders via #incidents
+  □ Identify impacted services
+
+✓ Investigation
+  □ Check monitoring dashboards
+  □ Review recent deployments
+  □ Analyze error logs
+  □ Identify root cause
+
+✓ Resolution
+  □ Implement fix or rollback
+  □ Verify services restored
+  □ Update status page: Resolved
+  □ Post all-clear message
+
+✓ Post-Incident
+  □ Schedule retrospective
+  □ Document timeline
+  □ Create follow-up tasks
+  □ Update runbooks
+```
+
+**Automated Actions**:
+```
+When run starts:
+  → Create channel: incident-{run-number}
+  → Invite: @on-call, @engineering-lead
+  → Post message: "Incident response initiated. Status updates will be posted here."
+  → Webhook: POST to status page API
+  
+When status changes to "Resolved":
+  → Post message: "Incident resolved. Retrospective scheduled."
+  → Webhook: Update status page
+```
+
+<Tip>
+Start with a simple playbook and iterate based on team feedback. Add complexity as needed.
+</Tip>
+
+## Running Playbooks
+
+### Starting a Run
+
+**Via Slash Command**:
+```
+/playbook run "Production Incident Response"
+```
+
+**Via Trigger Keyword**:
+```
+User posts: "production is down"
+→ Playbook suggests starting incident response
+```
+
+**Via Playbooks Interface**:
+1. Open Playbooks view
+2. Find desired playbook
+3. Click **Run**
+4. Fill in run details
+5. Start the run
+
+### Run Lifecycle
+
+**1. Active Run**
+- Dedicated run channel created
+- Checklists visible in right sidebar
+- Tasks can be completed
+- Status can be updated
+- Participants collaborate in channel
+
+**2. Status Updates**
+- In Progress → custom status → Resolved
+- Broadcast status changes
+- Update external systems
+- Notify stakeholders
+
+**3. Task Completion**
+- Check off completed tasks
+- Add notes and updates
+- Skip irrelevant tasks (if allowed)
+- Assign tasks to team members
+- Set task deadlines
+
+**4. Closing the Run**
+- Mark as Resolved
+- Complete retrospective (if configured)
+- Archive or keep channel active
+- Export data for analysis
+
+### Run Overview
+
+Track all active and past runs:
+
+```
+Active Runs (3)
+┌─────────────────────────────────────────┐
+│ 🔴 Production API Down (#427)           │
+│    Started: 15 min ago by @john         │
+│    Status: Investigating                │
+│    Tasks: 4/12 complete                 │
+└─────────────────────────────────────────┘
+
+│ 🟡 Deploy v2.5.0 (#426)                 │
+│    Started: 2 hours ago by @deploy-bot  │
+│    Status: In Progress                  │
+│    Tasks: 8/10 complete                 │
+└─────────────────────────────────────────┘
+
+Closed Runs (147)
+- Database Migration (#425) - 3 hours ago
+- Customer Escalation (#424) - 1 day ago
+- Release v2.4.9 (#423) - 2 days ago
+```
+
+## Checklist Features
+
+### Task Types
+
+**Standard Tasks**:
+```
+□ Task description
+  Additional context and links
+  Assigned to: @username
+  Due: 2 hours from run start
+```
+
+**Slash Command Tasks**:
+```
+□ Run health check
+  /healthcheck production
+```
+Clicking runs the slash command automatically
+
+**Automation Tasks**:
+```
+□ Notify stakeholders
+  Webhook: POST to notification service
+```
+Completed automatically when triggered
+
+### Task Assignment
+
+- Assign to specific users
+- Assign to roles (@on-call, @team-lead)
+- Self-assign during run
+- Reassign as needed
+- Track who completed what
+
+### Task Dependencies
+
+Organize tasks logically:
+- Group related tasks in checklist sections
+- Order tasks by priority
+- Mark tasks as optional or required
+- Skip tasks when irrelevant
+
+## Automation and Integrations
+
+### Automatic Actions
+
+**Channel Creation**:
+```yaml
+Action: Create Channel
+Name Pattern: incident-{run-number}
+Type: Public/Private
+Announce in: #incidents
+```
+
+**User Invitations**:
+```yaml
+Action: Invite Users
+Users:
+  - @on-call-engineer
+  - @engineering-manager
+Optional:
+  - @cto (for severity: critical)
+```
+
+**Messages**:
+```yaml
+Action: Post Message
+Channel: Run channel
+Message: |
+  🚨 **Incident Response Initiated**
+  
+  Severity: {severity}
+  Reporter: {reporter}
+  
+  Please follow the checklist in the right sidebar.
+```
+
+**Webhooks**:
+```yaml
+Action: Trigger Webhook
+URL: https://status.company.com/api/incidents
+Method: POST
+Payload:
+  title: {run-name}
+  status: investigating
+  started_at: {start-time}
+```
+
+### External Integrations
+
+Connect playbooks to external tools:
+
+- **Jira**: Create tickets for incidents
+- **PagerDuty**: Trigger on-call notifications
+- **StatusPage**: Update incident status
+- **Slack**: Cross-post updates
+- **GitHub**: Create issues for follow-ups
+- **Datadog**: Create events in monitoring
+
+### Webhook Triggers
+
+Start playbook runs from external events:
+
+```bash
+# Webhook endpoint for starting runs
+POST /plugins/playbooks/api/v0/runs
+
+# Example: Start from monitoring alert
+curl -X POST https://mattermost.com/plugins/playbooks/api/v0/runs \
+  -H "Authorization: Bearer token" \
+  -d '{
+    "playbook_id": "playbook-id",
+    "name": "Production Alert: High Error Rate",
+    "description": "Alert triggered by Datadog"
+  }'
+```
+
+## Retrospectives
+
+Learn and improve from each run:
+
+### Retrospective Components
+
+**Metrics**:
+```
+Time to Acknowledge: 5 minutes
+Time to Resolution: 2 hours 15 minutes
+Impacted Users: ~5,000
+Revenue Impact: $12,000
+```
+
+**Timeline**:
+```
+10:15 AM - Incident reported
+10:17 AM - On-call acknowledged  
+10:22 AM - Root cause identified
+10:45 AM - Fix deployed to staging
+11:30 AM - Fix deployed to production
+12:30 PM - Incident resolved
+```
+
+**Questions**:
+```
+What went well?
+→ Fast acknowledgment time
+→ Clear communication with stakeholders
+→ Comprehensive monitoring helped identify issue quickly
+
+What could be improved?
+→ Staging environment didn't catch the bug
+→ Rollback procedure was unclear
+→ Need better load testing
+
+Action Items:
+→ Improve staging environment fidelity
+→ Document rollback procedure
+→ Add load testing to CI/CD pipeline
+```
+
+### Retrospective Templates
+
+Customize questions for your team:
+
+```yaml
+Retrospective:
+  Questions:
+    - What was the root cause?
+    - How did we discover the issue?
+    - What went well during response?
+    - What could we improve?
+    - What preventive measures should we take?
+  Metrics:
+    - Time to Acknowledge (minutes)
+    - Time to Resolution (minutes)
+    - Number of People Involved
+    - Customer Impact (1-5 scale)
+```
+
+## Analytics and Reporting
+
+### Run Statistics
+
+Track performance over time:
+
+- Average time to resolution
+- Most common failure points
+- Team participation metrics
+- Playbook effectiveness
+- Trend analysis
+
+**Example Dashboard**:
+```
+Incident Response (Last 30 Days)
+─────────────────────────────────
+Total Incidents: 23
+Avg. Time to Acknowledge: 8 min
+Avg. Time to Resolve: 1h 45min
+
+Severity Breakdown:
+  Critical: 3 (13%)
+  High: 8 (35%)
+  Medium: 12 (52%)
+
+Top Root Causes:
+  1. Deployment issues (8)
+  2. Database problems (6)
+  3. External dependencies (5)
+```
+
+### Export Data
+
+Export run data for analysis:
+
+- CSV export of all runs
+- JSON API access
+- Integration with BI tools
+- Custom reporting
+
+## Permissions and Access
+
+### Playbook Permissions
+
+**Playbook Roles**:
+- **Owner**: Full control, can delete playbook
+- **Editor**: Can modify playbook and start runs
+- **Viewer**: Can view playbook and runs
+- **Runner**: Can start runs but not edit playbook
+
+**Visibility**:
+- **Public**: All team members can view and use
+- **Private**: Only specified members have access
+
+### Run Permissions
+
+**Run Participation**:
+- Run channel members can complete tasks
+- Observers can view but not modify
+- External participants can be invited
+
+**Run Administration**:
+- Run commander has special privileges
+- Can change run status
+- Can modify checklist
+- Can manage participants
+
+## Best Practices
+
+### Designing Effective Playbooks
+
+1. **Start Simple**: Begin with core steps, add complexity iteratively
+2. **Clear Task Names**: Use action verbs and specific descriptions
+3. **Appropriate Detail**: Not too vague, not too prescriptive
+4. **Regular Updates**: Review and improve based on retrospectives
+5. **Test Thoroughly**: Run through playbook before critical use
+
+### Running Playbooks Successfully
+
+1. **Quick Start**: Don't delay starting a run
+2. **Update Status**: Keep stakeholders informed
+3. **Document in Real-Time**: Add notes as you go
+4. **Adapt as Needed**: Skip or add tasks during run
+5. **Complete Retrospective**: Always learn and improve
+
+### Common Pitfalls
+
+❌ **Over-Engineering**: Too many tasks overwhelms users
+❌ **Under-Documenting**: Too few details causes confusion
+❌ **Set and Forget**: Playbooks need regular updates
+❌ **Skipping Retros**: Miss opportunities to improve
+❌ **No Ownership**: Assign playbook maintainers
+
+## Related Features
+
+- [Integrations](/features/integrations) - Connect external tools
+- [Plugins](/features/plugins) - Extend workflow capabilities  
+- [Channels](/features/channels) - Run dedicated channels
+- [Messaging](/features/messaging) - Team communication during runs

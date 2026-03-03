@@ -1,0 +1,814 @@
+---
+title: Deployment
+description: Production deployment patterns for Mattermost using Docker, Kubernetes, and High Availability setups
+---
+
+Mattermost supports various deployment patterns from single-server installations to highly available clustered deployments.
+
+## Deployment Options
+
+Mattermost can be deployed using:
+
+- **Docker Compose** - Quick setup for development and small teams
+- **Kubernetes** - Container orchestration for production
+- **High Availability (HA)** - Multi-node cluster with load balancing
+- **Binary Installation** - Traditional server deployment
+
+## Docker Deployment
+
+### Docker Compose Setup
+
+Basic production-ready Docker Compose deployment:
+
+<Steps>
+  <Step title="Create Directory Structure">
+    ```bash
+    mkdir -p mattermost/{config,data,logs,plugins,client-plugins}
+    cd mattermost
+    ```
+  </Step>
+  
+  <Step title="Create docker-compose.yml">
+    ```yaml
+    services:
+      postgres:
+        image: postgres:14
+        container_name: mattermost-postgres
+        restart: unless-stopped
+        environment:
+          POSTGRES_USER: mmuser
+          POSTGRES_PASSWORD: ${DB_PASSWORD}
+          POSTGRES_DB: mattermost
+          POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+        volumes:
+          - postgres-data:/var/lib/postgresql/data
+        networks:
+          - mattermost
+        healthcheck:
+          test: ["CMD", "pg_isready", "-h", "localhost"]
+          interval: 10s
+          timeout: 5s
+          retries: 5
+    
+      mattermost:
+        image: mattermost/mattermost-team-edition:latest
+        container_name: mattermost-app
+        restart: unless-stopped
+        depends_on:
+          postgres:
+            condition: service_healthy
+        environment:
+          - MM_SQLSETTINGS_DRIVERNAME=postgres
+          - MM_SQLSETTINGS_DATASOURCE=postgres://mmuser:${DB_PASSWORD}@postgres:5432/mattermost?sslmode=disable&connect_timeout=10&binary_parameters=yes
+          - MM_SERVICESETTINGS_SITEURL=${SITE_URL}
+          - MM_SERVICESETTINGS_LISTENADDRESS=:8065
+        ports:
+          - "8065:8065"
+        volumes:
+          - ./config:/mattermost/config:rw
+          - ./data:/mattermost/data:rw
+          - ./logs:/mattermost/logs:rw
+          - ./plugins:/mattermost/plugins:rw
+          - ./client-plugins:/mattermost/client/plugins:rw
+        networks:
+          - mattermost
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:8065/api/v4/system/ping"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 90s
+    
+    volumes:
+      postgres-data:
+    
+    networks:
+      mattermost:
+        driver: bridge
+    ```
+  </Step>
+  
+  <Step title="Create Environment File">
+    ```bash
+    cat > .env << EOF
+    DB_PASSWORD=secure_database_password
+    SITE_URL=https://mattermost.example.com
+    EOF
+    
+    chmod 600 .env
+    ```
+  </Step>
+  
+  <Step title="Start Services">
+    ```bash
+    docker compose up -d
+    
+    # Check logs
+    docker compose logs -f mattermost
+    
+    # Verify health
+    docker compose ps
+    ```
+  </Step>
+</Steps>
+
+### Production Docker Compose with Redis
+
+Add Redis for session caching and rate limiting:
+
+```yaml
+services:
+  # ... postgres and mattermost services ...
+  
+  redis:
+    image: redis:7.4.0
+    container_name: mattermost-redis
+    restart: unless-stopped
+    networks:
+      - mattermost
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres-data:
+  redis-data:
+```
+
+Add to Mattermost environment:
+
+```yaml
+environment:
+  # Redis cache configuration
+  - MM_CACHESETTINGS_TYPE=redis
+  - MM_CACHESETTINGS_REDISADDRESS=redis:6379
+  - MM_CACHESETTINGS_REDISDB=0
+```
+
+## High Availability Deployment
+
+HA deployment requires multiple Mattermost app servers behind a load balancer.
+
+### Architecture Overview
+
+```
+                    Load Balancer (HAProxy/Nginx)
+                              |
+        +---------------------+---------------------+
+        |                     |                     |
+   MM Node 1             MM Node 2             MM Node 3
+        |                     |                     |
+        +---------------------+---------------------+
+                              |
+                    Shared PostgreSQL Cluster
+                              |
+                    Shared File Storage (S3/NFS)
+```
+
+### HA Docker Compose Setup
+
+<CodeGroup>
+```yaml docker-compose.ha.yml
+services:
+  postgres:
+    image: postgres:14
+    container_name: mattermost-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mmuser
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: mattermost
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - mattermost
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7.4.0
+    container_name: mattermost-redis
+    restart: unless-stopped
+    networks:
+      - mattermost
+    volumes:
+      - redis-data:/data
+
+  leader:
+    image: mattermost/mattermost-team-edition:latest
+    container_name: mattermost-leader
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - MM_SQLSETTINGS_DRIVERNAME=postgres
+      - MM_SQLSETTINGS_DATASOURCE=postgres://mmuser:${DB_PASSWORD}@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
+      - MM_SERVICESETTINGS_SITEURL=${SITE_URL}
+      - MM_SERVICESETTINGS_LISTENADDRESS=:8065
+      - MM_CLUSTERSETTINGS_ENABLE=true
+      - MM_CLUSTERSETTINGS_CLUSTERNAME=mm_prod_cluster
+      - MM_CACHESETTINGS_TYPE=redis
+      - MM_CACHESETTINGS_REDISADDRESS=redis:6379
+      - MM_FILESETTINGS_DRIVERNAME=amazons3
+      - MM_FILESETTINGS_AMAZONS3BUCKET=${S3_BUCKET}
+      - MM_FILESETTINGS_AMAZONS3REGION=${S3_REGION}
+    networks:
+      - mattermost
+    expose:
+      - "8065"
+      - "8074/tcp"
+      - "8074/udp"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://leader:8065/api/v4/system/ping"]
+      interval: 5s
+      timeout: 30s
+      retries: 30
+      start_period: 5m
+
+  follower:
+    image: mattermost/mattermost-team-edition:latest
+    container_name: mattermost-follower
+    restart: unless-stopped
+    depends_on:
+      - leader
+    environment:
+      - MM_SQLSETTINGS_DRIVERNAME=postgres
+      - MM_SQLSETTINGS_DATASOURCE=postgres://mmuser:${DB_PASSWORD}@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
+      - MM_SERVICESETTINGS_SITEURL=${SITE_URL}
+      - MM_CLUSTERSETTINGS_ENABLE=true
+      - MM_CLUSTERSETTINGS_CLUSTERNAME=mm_prod_cluster
+      - MM_CACHESETTINGS_TYPE=redis
+      - MM_CACHESETTINGS_REDISADDRESS=redis:6379
+      - MM_FILESETTINGS_DRIVERNAME=amazons3
+      - MM_FILESETTINGS_AMAZONS3BUCKET=${S3_BUCKET}
+      - MM_FILESETTINGS_AMAZONS3REGION=${S3_REGION}
+    networks:
+      - mattermost
+    expose:
+      - "8065"
+      - "8074/tcp"
+      - "8074/udp"
+
+  follower2:
+    image: mattermost/mattermost-team-edition:latest
+    container_name: mattermost-follower2
+    restart: unless-stopped
+    depends_on:
+      - leader
+    environment:
+      - MM_SQLSETTINGS_DRIVERNAME=postgres
+      - MM_SQLSETTINGS_DATASOURCE=postgres://mmuser:${DB_PASSWORD}@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
+      - MM_SERVICESETTINGS_SITEURL=${SITE_URL}
+      - MM_CLUSTERSETTINGS_ENABLE=true
+      - MM_CLUSTERSETTINGS_CLUSTERNAME=mm_prod_cluster
+      - MM_CACHESETTINGS_TYPE=redis
+      - MM_CACHESETTINGS_REDISADDRESS=redis:6379
+      - MM_FILESETTINGS_DRIVERNAME=amazons3
+      - MM_FILESETTINGS_AMAZONS3BUCKET=${S3_BUCKET}
+      - MM_FILESETTINGS_AMAZONS3REGION=${S3_REGION}
+    networks:
+      - mattermost
+    expose:
+      - "8065"
+      - "8074/tcp"
+      - "8074/udp"
+
+  haproxy:
+    image: nginx:latest
+    container_name: mattermost-lb
+    restart: unless-stopped
+    depends_on:
+      leader:
+        condition: service_healthy
+      follower:
+        condition: service_started
+      follower2:
+        condition: service_started
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - mattermost
+    ports:
+      - "80:8065"
+      - "443:8065"
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  mattermost:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.254.0/24
+```
+
+```nginx nginx.conf
+upstream mattermost_cluster {
+    server leader:8065 fail_timeout=10s max_fails=10;
+    server follower:8065 fail_timeout=10s max_fails=10;
+    server follower2:8065 fail_timeout=10s max_fails=10;
+}
+
+server {
+    listen 8065;
+    server_name mattermost.example.com;
+
+    location ~ /api/v[0-9]+/(users/)?websocket$ {
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_http_version 1.1;
+        client_max_body_size 50M;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Frame-Options SAMEORIGIN;
+        proxy_buffers 256 16k;
+        proxy_buffer_size 16k;
+        proxy_read_timeout 600s;
+        proxy_pass http://mattermost_cluster;
+    }
+
+    location / {
+        client_max_body_size 100M;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Frame-Options SAMEORIGIN;
+        proxy_pass http://mattermost_cluster;
+    }
+}
+```
+</CodeGroup>
+
+<Warning>
+  **HA Requirements:**
+  - All nodes must share the same database
+  - Use S3-compatible storage (not local files)
+  - Redis required for session sharing
+  - Cluster gossip port 8074 (TCP/UDP) must be open between nodes
+  - Set `ReadOnlyConfig=true` to prevent configuration drift
+</Warning>
+
+### Start HA Cluster
+
+```bash
+# Start all services
+docker compose -f docker-compose.ha.yml up -d
+
+# Verify cluster status
+docker compose -f docker-compose.ha.yml logs leader | grep cluster
+
+# Check load balancer
+curl http://localhost/api/v4/system/ping
+```
+
+## Kubernetes Deployment
+
+### Using Helm Chart
+
+<Steps>
+  <Step title="Add Mattermost Helm Repository">
+    ```bash
+    helm repo add mattermost https://helm.mattermost.com
+    helm repo update
+    ```
+  </Step>
+  
+  <Step title="Create values.yaml">
+    ```yaml
+    # values.yaml
+    image:
+      repository: mattermost/mattermost-team-edition
+      tag: latest
+    
+    ingress:
+      enabled: true
+      hosts:
+        - mattermost.example.com
+      tls:
+        - secretName: mattermost-tls
+          hosts:
+            - mattermost.example.com
+    
+    mysql:
+      enabled: false
+    
+    postgresql:
+      enabled: true
+      auth:
+        username: mmuser
+        password: secure_password
+        database: mattermost
+      primary:
+        persistence:
+          size: 50Gi
+    
+    externalDB:
+      enabled: false
+    
+    persistence:
+      data:
+        enabled: true
+        size: 50Gi
+      plugins:
+        enabled: true
+        size: 10Gi
+    
+    service:
+      type: ClusterIP
+      port: 8065
+    
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+    
+    replicaCount: 3
+    
+    config:
+      siteUrl: "https://mattermost.example.com"
+      clusterSettings:
+        enable: true
+        clusterName: "k8s-cluster"
+      fileSettings:
+        driverName: "amazons3"
+        amazonS3Bucket: "mattermost-files"
+        amazonS3Region: "us-east-1"
+    ```
+  </Step>
+  
+  <Step title="Install Mattermost">
+    ```bash
+    # Create namespace
+    kubectl create namespace mattermost
+    
+    # Install chart
+    helm install mattermost mattermost/mattermost-team-edition \
+      -f values.yaml \
+      -n mattermost
+    
+    # Check deployment
+    kubectl get pods -n mattermost
+    kubectl get svc -n mattermost
+    ```
+  </Step>
+  
+  <Step title="Access Mattermost">
+    ```bash
+    # Get service URL
+    kubectl get ingress -n mattermost
+    
+    # Or port-forward for testing
+    kubectl port-forward -n mattermost svc/mattermost 8065:8065
+    ```
+  </Step>
+</Steps>
+
+### Kubernetes Manifest (Manual Deployment)
+
+<CodeGroup>
+```yaml deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mattermost
+  namespace: mattermost
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mattermost
+  template:
+    metadata:
+      labels:
+        app: mattermost
+    spec:
+      containers:
+      - name: mattermost
+        image: mattermost/mattermost-team-edition:latest
+        ports:
+        - containerPort: 8065
+          name: http
+        - containerPort: 8074
+          name: cluster-tcp
+          protocol: TCP
+        - containerPort: 8074
+          name: cluster-udp
+          protocol: UDP
+        env:
+        - name: MM_SQLSETTINGS_DRIVERNAME
+          value: "postgres"
+        - name: MM_SQLSETTINGS_DATASOURCE
+          valueFrom:
+            secretKeyRef:
+              name: mattermost-db
+              key: datasource
+        - name: MM_SERVICESETTINGS_SITEURL
+          value: "https://mattermost.example.com"
+        - name: MM_CLUSTERSETTINGS_ENABLE
+          value: "true"
+        - name: MM_CLUSTERSETTINGS_CLUSTERNAME
+          value: "k8s-prod"
+        - name: MM_FILESETTINGS_DRIVERNAME
+          value: "amazons3"
+        - name: MM_FILESETTINGS_AMAZONS3BUCKET
+          value: "mattermost-files"
+        volumeMounts:
+        - name: config
+          mountPath: /mattermost/config
+        - name: data
+          mountPath: /mattermost/data
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        livenessProbe:
+          httpGet:
+            path: /api/v4/system/ping
+            port: 8065
+          initialDelaySeconds: 90
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/v4/system/ping
+            port: 8065
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: config
+        emptyDir: {}
+      - name: data
+        persistentVolumeClaim:
+          claimName: mattermost-data
+```
+
+```yaml service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mattermost
+  namespace: mattermost
+spec:
+  selector:
+    app: mattermost
+  ports:
+  - name: http
+    port: 8065
+    targetPort: 8065
+  - name: cluster-tcp
+    port: 8074
+    targetPort: 8074
+    protocol: TCP
+  - name: cluster-udp
+    port: 8074
+    targetPort: 8074
+    protocol: UDP
+  type: ClusterIP
+  sessionAffinity: ClientIP
+```
+
+```yaml ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mattermost
+  namespace: mattermost
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - mattermost.example.com
+    secretName: mattermost-tls
+  rules:
+  - host: mattermost.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mattermost
+            port:
+              number: 8065
+```
+</CodeGroup>
+
+## Database Configuration
+
+### PostgreSQL High Availability
+
+For production, use a managed PostgreSQL service or configure replication:
+
+```yaml
+# PostgreSQL with replication
+postgresql:
+  enabled: true
+  replication:
+    enabled: true
+    numSynchronousReplicas: 1
+  readReplicas:
+    enabled: true
+    replicaCount: 2
+  persistence:
+    size: 100Gi
+    storageClass: "fast-ssd"
+```
+
+### Database Connection Pooling
+
+```yaml
+environment:
+  - MM_SQLSETTINGS_MAXIDLECONNS=20
+  - MM_SQLSETTINGS_MAXOPENCONNS=300
+  - MM_SQLSETTINGS_QUERYTIMEOUT=30
+  - MM_SQLSETTINGS_CONNMAXLIFETIMEMILLISECONDS=3600000
+  - MM_SQLSETTINGS_CONNMAXIDLETIMEMILLISECONDS=300000
+```
+
+## Scaling Considerations
+
+### Horizontal Pod Autoscaling (K8s)
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mattermost
+  namespace: mattermost
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mattermost
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+```
+
+### Resource Recommendations
+
+**Small Deployment (< 1000 users):**
+- CPU: 2 cores
+- RAM: 4GB
+- Database: 20GB storage
+
+**Medium Deployment (1000-5000 users):**
+- CPU: 4 cores
+- RAM: 8GB
+- Database: 50GB storage
+- HA: 2-3 app servers
+
+**Large Deployment (5000+ users):**
+- CPU: 8+ cores per node
+- RAM: 16GB+ per node
+- Database: 100GB+ storage with replication
+- HA: 3+ app servers
+- Separate search cluster (Elasticsearch)
+
+## Reverse Proxy Configuration
+
+### Nginx SSL Termination
+
+```nginx
+upstream mattermost {
+    server 127.0.0.1:8065;
+    keepalive 32;
+}
+
+server {
+    listen 80;
+    server_name mattermost.example.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name mattermost.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/mattermost.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mattermost.example.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
+    ssl_prefer_server_ciphers off;
+
+    location ~ /api/v[0-9]+/(users/)?websocket$ {
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_http_version 1.1;
+        client_max_body_size 50M;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Frame-Options SAMEORIGIN;
+        proxy_buffers 256 16k;
+        proxy_buffer_size 16k;
+        proxy_read_timeout 600s;
+        proxy_pass http://mattermost;
+    }
+
+    location / {
+        client_max_body_size 100M;
+        proxy_set_header Connection "";
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Frame-Options SAMEORIGIN;
+        proxy_pass http://mattermost;
+    }
+}
+```
+
+## Troubleshooting Deployments
+
+### Docker Issues
+
+```bash
+# Check container logs
+docker compose logs mattermost
+
+# Check container health
+docker compose ps
+
+# Restart services
+docker compose restart mattermost
+
+# Rebuild containers
+docker compose up -d --force-recreate
+```
+
+### Kubernetes Issues
+
+```bash
+# Check pod status
+kubectl get pods -n mattermost
+
+# View pod logs
+kubectl logs -n mattermost deployment/mattermost
+
+# Describe pod for events
+kubectl describe pod -n mattermost <pod-name>
+
+# Check ingress
+kubectl get ingress -n mattermost
+kubectl describe ingress -n mattermost mattermost
+```
+
+### Cluster Health Check
+
+```bash
+# Verify cluster nodes can communicate
+curl http://localhost:8065/api/v4/system/ping
+
+# Check cluster status (requires system admin token)
+curl -H "Authorization: Bearer TOKEN" \
+  http://localhost:8065/api/v4/cluster/status
+```
+
+## Related Resources
+
+- [Configuration](/admin/configuration)
+- [Backup & Restore](/admin/backup-restore)
+- [Monitoring](/admin/monitoring)
+- [Security](/admin/security)

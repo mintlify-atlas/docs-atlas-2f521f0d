@@ -1,0 +1,711 @@
+---
+title: 'Channels API'
+description: 'Create, manage, and interact with channels'
+---
+
+## Overview
+
+The Channels API provides endpoints for managing channels, channel members, and channel-related operations including public channels, private channels, direct messages, and group messages.
+
+## Channel Types
+
+Mattermost supports four channel types:
+
+- **`O`** - Public (Open) channel
+- **`P`** - Private channel
+- **`D`** - Direct message channel
+- **`G`** - Group message channel
+
+## Create Channel
+
+Create a new public or private channel.
+
+```http
+POST /api/v4/channels
+```
+
+### Request Body
+
+<ParamField body="team_id" type="string" required>
+  Team ID where the channel will be created
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Unique channel handle (will be in the URL)
+</ParamField>
+
+<ParamField body="display_name" type="string" required>
+  Non-unique UI name for the channel
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  Channel type: `O` for public, `P` for private
+</ParamField>
+
+<ParamField body="purpose" type="string">
+  Short description of the channel's purpose
+</ParamField>
+
+<ParamField body="header" type="string">
+  Markdown-formatted text for channel header
+</ParamField>
+
+### Example Request
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:8065/api/v4/channels \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "team_id": "team123abc",
+    "name": "dev-team",
+    "display_name": "Development Team",
+    "type": "O",
+    "purpose": "Development discussions",
+    "header": "Welcome to the dev team!"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8065/api/v4/channels', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer your-token',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    team_id: 'team123abc',
+    name: 'dev-team',
+    display_name: 'Development Team',
+    type: 'O',
+    purpose: 'Development discussions'
+  })
+});
+```
+</CodeGroup>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Unique channel identifier
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Channel URL handle
+</ResponseField>
+
+<ResponseField name="display_name" type="string">
+  Channel display name
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Channel type (O, P, D, or G)
+</ResponseField>
+
+<ResponseField name="team_id" type="string">
+  Parent team ID
+</ResponseField>
+
+```json Response Example
+{
+  "id": "channel456xyz",
+  "create_at": 1507840900004,
+  "update_at": 1507840900004,
+  "delete_at": 0,
+  "team_id": "team123abc",
+  "type": "O",
+  "display_name": "Development Team",
+  "name": "dev-team",
+  "header": "Welcome to the dev team!",
+  "purpose": "Development discussions",
+  "creator_id": "user789ghi"
+}
+```
+
+## Create Direct Message Channel
+
+Create a direct message channel between two users.
+
+```http
+POST /api/v4/channels/direct
+```
+
+### Request Body
+
+Array of two user IDs:
+
+```json
+["user_id_1", "user_id_2"]
+```
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/channels/direct \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '["user123abc", "user456def"]'
+```
+
+## Create Group Message Channel
+
+Create a group message channel with 3-8 users.
+
+```http
+POST /api/v4/channels/group
+```
+
+### Request Body
+
+Array of 3-8 user IDs:
+
+```json
+["user_id_1", "user_id_2", "user_id_3"]
+```
+
+<Note>
+If the logged-in user's ID is not included, it will be automatically appended.
+</Note>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/channels/group \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '["user1", "user2", "user3", "user4"]'
+```
+
+## Get Channel
+
+Retrieve a single channel by ID.
+
+```http
+GET /api/v4/channels/{channel_id}
+```
+
+### Path Parameters
+
+<ParamField path="channel_id" type="string" required>
+  Channel GUID
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/channels/{channel_id}
+```
+
+## Get Channel by Name
+
+Retrieve a channel by team ID and channel name.
+
+```http
+GET /api/v4/teams/{team_id}/channels/name/{channel_name}
+```
+
+### Path Parameters
+
+<ParamField path="team_id" type="string" required>
+  Team GUID
+</ParamField>
+
+<ParamField path="channel_name" type="string" required>
+  Channel name (URL handle)
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="include_deleted" type="boolean" default="false">
+  Include deleted/archived channels
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/teams/{team_id}/channels/name/dev-team
+```
+
+## Get Public Channels for Team
+
+Get a paginated list of public channels for a team.
+
+```http
+GET /api/v4/teams/{team_id}/channels
+```
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="60">
+  Channels per page
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/teams/{team_id}/channels?page=0&per_page=50'
+```
+
+## Search Channels
+
+Search for channels on a team.
+
+```http
+POST /api/v4/teams/{team_id}/channels/search
+```
+
+### Request Body
+
+<ParamField body="term" type="string" required>
+  Search term to match against name or display name
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/teams/{team_id}/channels/search \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"term": "development"}'
+```
+
+## Search All Channels
+
+Search across all teams for channels.
+
+```http
+POST /api/v4/channels/search
+```
+
+### Request Body
+
+<ParamField body="term" type="string" required>
+  Search term for name, display name, or purpose
+</ParamField>
+
+<ParamField body="team_ids" type="array">
+  Filter results to specific teams
+</ParamField>
+
+<ParamField body="public" type="boolean">
+  Filter for public channels only
+</ParamField>
+
+<ParamField body="private" type="boolean">
+  Filter for private channels only
+</ParamField>
+
+<ParamField body="deleted" type="boolean">
+  Include deleted/archived channels
+</ParamField>
+
+<ParamField body="exclude_default_channels" type="boolean">
+  Exclude default channels (Town Square, Off-Topic)
+</ParamField>
+
+<ParamField body="page" type="string">
+  Page number for pagination
+</ParamField>
+
+<ParamField body="per_page" type="string">
+  Entries per page
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/channels/search \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "term": "engineering",
+    "public": true,
+    "page": "0",
+    "per_page": "50"
+  }'
+```
+
+## Update Channel
+
+Update a channel's information.
+
+```http
+PUT /api/v4/channels/{channel_id}
+```
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  Channel ID (must match path parameter)
+</ParamField>
+
+<ParamField body="name" type="string">
+  Channel URL handle
+</ParamField>
+
+<ParamField body="display_name" type="string">
+  Channel display name
+</ParamField>
+
+<ParamField body="purpose" type="string">
+  Channel purpose
+</ParamField>
+
+<ParamField body="header" type="string">
+  Channel header (markdown)
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/channels/{channel_id} \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "id": "channel456xyz",
+    "display_name": "Dev Team - Updated",
+    "header": "New header text"
+  }'
+```
+
+## Patch Channel
+
+Partially update a channel.
+
+```http
+PUT /api/v4/channels/{channel_id}/patch
+```
+
+### Request Body
+
+<ParamField body="name" type="string">
+  Channel handle (cannot update for DM/GM channels)
+</ParamField>
+
+<ParamField body="display_name" type="string">
+  Display name (cannot update for DM/GM channels)
+</ParamField>
+
+<ParamField body="purpose" type="string">
+  Channel purpose (cannot update for DM/GM channels)
+</ParamField>
+
+<ParamField body="header" type="string">
+  Channel header (markdown)
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/channels/{channel_id}/patch \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"header": "Updated header"}'
+```
+
+## Delete Channel
+
+Archive a channel (soft delete).
+
+```http
+DELETE /api/v4/channels/{channel_id}
+```
+
+<Warning>
+Direct and group message channels cannot be deleted. Use `permanent=true` query parameter for permanent deletion (requires configuration).
+</Warning>
+
+### Example Request
+
+```bash
+curl -X DELETE \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/channels/{channel_id}
+```
+
+## Restore Channel
+
+Restore a soft-deleted channel.
+
+```http
+POST /api/v4/channels/{channel_id}/restore
+```
+
+### Example Request
+
+```bash
+curl -X POST \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/channels/{channel_id}/restore
+```
+
+## Get Channel Members
+
+Get a paginated list of channel members.
+
+```http
+GET /api/v4/channels/{channel_id}/members
+```
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="60">
+  Members per page
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/channels/{channel_id}/members?page=0&per_page=50'
+```
+
+## Add Channel Member
+
+Add one or more users to a channel.
+
+```http
+POST /api/v4/channels/{channel_id}/members
+```
+
+### Request Body
+
+<ParamField body="user_id" type="string">
+  Single user ID (for backwards compatibility)
+</ParamField>
+
+<ParamField body="user_ids" type="array">
+  Array of user IDs (1-1000 users)
+</ParamField>
+
+<ParamField body="post_root_id" type="string">
+  ID of post where link to add member originates
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/channels/{channel_id}/members \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"user_ids": ["user123", "user456"]}'
+```
+
+## Remove Channel Member
+
+Remove a user from a channel.
+
+```http
+DELETE /api/v4/channels/{channel_id}/members/{user_id}
+```
+
+### Path Parameters
+
+<ParamField path="channel_id" type="string" required>
+  Channel GUID
+</ParamField>
+
+<ParamField path="user_id" type="string" required>
+  User GUID
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X DELETE \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/channels/{channel_id}/members/{user_id}
+```
+
+<Note>
+Only works for public and private channels (not DM/GM). Minimum server version: 5.3
+</Note>
+
+## Get Channel Statistics
+
+Get statistics for a channel.
+
+```http
+GET /api/v4/channels/{channel_id}/stats
+```
+
+### Response
+
+<ResponseField name="channel_id" type="string">
+  Channel ID
+</ResponseField>
+
+<ResponseField name="member_count" type="integer">
+  Total number of channel members
+</ResponseField>
+
+```json Response Example
+{
+  "channel_id": "channel456xyz",
+  "member_count": 23
+}
+```
+
+## Update Channel Privacy
+
+Convert a channel between public and private.
+
+```http
+PUT /api/v4/channels/{channel_id}/privacy
+```
+
+### Request Body
+
+<ParamField body="privacy" type="string" required>
+  Channel privacy: `O` for public, `P` for private
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/channels/{channel_id}/privacy \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"privacy": "P"}'
+```
+
+<Note>
+Minimum server version: 5.16
+</Note>
+
+## Move Channel to Team
+
+Move a channel to a different team.
+
+```http
+POST /api/v4/channels/{channel_id}/move
+```
+
+### Request Body
+
+<ParamField body="team_id" type="string" required>
+  Destination team ID
+</ParamField>
+
+<ParamField body="force" type="boolean">
+  Remove members not in target team before moving
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/channels/{channel_id}/move \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"team_id": "newteam123", "force": false}'
+```
+
+<Note>
+Minimum server version: 5.26
+</Note>
+
+## Get Pinned Posts
+
+Get all pinned posts for a channel.
+
+```http
+GET /api/v4/channels/{channel_id}/pinned
+```
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/channels/{channel_id}/pinned
+```
+
+## Update Channel Member Roles
+
+Update a channel member's roles.
+
+```http
+PUT /api/v4/channels/{channel_id}/members/{user_id}/roles
+```
+
+### Request Body
+
+<ParamField body="roles" type="string" required>
+  Space-separated roles: "channel_user", "channel_admin", or both
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT \
+  http://localhost:8065/api/v4/channels/{channel_id}/members/{user_id}/roles \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"roles": "channel_user channel_admin"}'
+```
+
+## Autocomplete Channels
+
+Autocomplete channels for a team.
+
+```http
+GET /api/v4/teams/{team_id}/channels/autocomplete
+```
+
+### Query Parameters
+
+<ParamField query="name" type="string" required>
+  Channel name or display name to match
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/teams/{team_id}/channels/autocomplete?name=dev'
+```
+
+## Permissions
+
+| Operation | Required Permission |
+|-----------|--------------------|
+| Create public channel | `create_public_channel` |
+| Create private channel | `create_private_channel` |
+| Get channel | `read_channel` |
+| Update public channel | `manage_public_channel_properties` |
+| Update private channel | `manage_private_channel_properties` |
+| Delete public channel | `delete_public_channel` |
+| Delete private channel | `delete_private_channel` |
+| Add members (public) | `manage_public_channel_members` |
+| Add members (private) | `manage_private_channel_members` |
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `400` | Invalid parameters |
+| `401` | Not authenticated |
+| `403` | Insufficient permissions |
+| `404` | Channel not found |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Posts API" icon="message" href="/api/posts">
+    Create and manage posts in channels
+  </Card>
+  <Card title="Files API" icon="file" href="/api/files">
+    Upload and manage files
+  </Card>
+</CardGroup>

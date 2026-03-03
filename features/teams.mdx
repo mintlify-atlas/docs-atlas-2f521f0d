@@ -1,0 +1,430 @@
+---
+title: Teams
+description: Organize your workspace with teams that group channels and members together
+---
+
+Teams in Mattermost provide the highest level of organization, allowing you to structure your workspace by department, project, location, or any other logical grouping. Each team contains its own set of channels and members.
+
+## Understanding Teams
+
+<CardGroup cols={2}>
+  <Card title="Multi-Team Support" icon="layer-group">
+    Users can belong to multiple teams and switch between them seamlessly
+  </Card>
+  
+  <Card title="Team Isolation" icon="shield-halved">
+    Channels are scoped to teams, keeping conversations organized and focused
+  </Card>
+  
+  <Card title="Flexible Membership" icon="user-plus">
+    Invite users, allow self-signup, or restrict to specific email domains
+  </Card>
+  
+  <Card title="Cross-Team Collaboration" icon="handshake">
+    Direct messages work across all teams for seamless communication
+  </Card>
+</CardGroup>
+
+## Team Structure
+
+### What is a Team?
+
+A team is a collection of channels and members working together:
+- Independent channel lists per team
+- Dedicated member roster
+- Team-specific settings and permissions
+- Custom team icons and branding
+- Separate notification preferences
+
+**Common Team Structures**:
+
+```
+🏢 Organization: Acme Corp
+  ├── 👥 Engineering Team
+  │   ├── #engineering
+  │   ├── #backend-dev
+  │   ├── #frontend-dev
+  │   └── #devops
+  │
+  ├── 📢 Marketing Team  
+  │   ├── #marketing
+  │   ├── #campaigns
+  │   ├── #social-media
+  │   └── #content
+  │
+  └── 🎯 Product Team
+      ├── #product
+      ├── #roadmap
+      ├── #user-research
+      └── #design
+```
+
+### Team vs. Channel
+
+| Feature | Team | Channel |
+|---------|------|----------|
+| **Scope** | Organization-wide grouping | Topic-specific conversations |
+| **Members** | Hundreds to thousands | Subset of team members |
+| **Purpose** | Organize departments/projects | Focused discussions |
+| **Visibility** | Can be listed or unlisted | Public or private within team |
+| **Switching** | Team selector in top left | Channel sidebar |
+
+## Creating and Managing Teams
+
+### Creating a Team
+
+System admins and authorized users can create teams:
+
+1. Click the team menu (top-left corner)
+2. Select **Create a Team**
+3. Configure team settings:
+   - **Team Name** (URL-friendly identifier)
+   - **Display Name** (shown to users)
+   - **Description** (optional)
+   - **Allow anyone to join** (yes/no)
+   - **Allowed email domains** (optional restriction)
+
+```typescript
+// Team creation from source code
+interface Team {
+  Id: string;
+  CreateAt: number;
+  UpdateAt: number;
+  DeleteAt: number;
+  DisplayName: string;  // User-friendly name
+  Name: string;         // URL-safe identifier
+  Description: string;
+  Email: string;
+  Type: string;         // 'O' (Open) or 'I' (Invite only)
+  AllowedDomains: string;
+  AllowOpenInvite: boolean;
+}
+```
+
+### Team Settings
+
+**General Settings**:
+- Team name and display name
+- Team description
+- Team icon/avatar
+- Invite code regeneration
+
+**Access Settings**:
+- Open team (anyone can join via link)
+- Invite-only team
+- Email domain restrictions
+- Allow any user with account to join
+
+**Advanced Settings**:
+- Team-specific permission schemes
+- Channel creation permissions
+- Post editing and deletion rules
+- File upload restrictions
+
+### Default Channels
+
+Every team includes default channels that new members automatically join:
+
+**Standard Defaults**:
+- **Town Square** - General team announcements and discussions
+- **Off-Topic** - Casual conversation and non-work topics
+
+**Custom Defaults**:
+Administrators can configure additional default channels:
+
+```yaml
+# Example default channel configuration
+TeamSettings:
+  ExperimentalDefaultChannels:
+    - town-square
+    - team-announcements  
+    - help-desk
+    - social
+```
+
+<Note>
+When custom default channels are specified, they replace "Off-Topic" but "Town Square" always remains.
+</Note>
+
+## Team Membership
+
+### Adding Team Members
+
+Multiple ways to grow your team:
+
+**1. Direct Invitation**
+- Team admins can invite by email
+- Send invitation link to specific people
+- Invited users receive email notification
+- Can set as team admin on invitation
+
+**2. Invitation Link**
+- Share a unique team invitation URL
+- Anyone with the link can join (if allowed)
+- Regenerate link if it becomes public
+- Set expiration on invitation links
+
+**3. Email Domain Restriction**
+- Allow automatic joining for specific email domains
+- Perfect for company email addresses
+- Example: `@company.com, @subsidiary.com`
+- Users with matching emails can find and join team
+
+**4. System Admin Addition**
+- System admins can add any user to any team
+- Bulk user addition via CLI or API
+- Useful for onboarding large groups
+
+### Team Roles
+
+Teams have a hierarchical role structure:
+
+**Team Admin**:
+- Manage team settings
+- Invite and remove team members
+- Manage channels within the team
+- Set team-level permissions
+- Cannot delete the team (System Admin only)
+
+**Team Member**:
+- Access team channels
+- Create channels (if permitted)
+- Invite users to team (if permitted)
+- Standard messaging and collaboration
+
+**Team Guest**:
+- Limited to specific channels within team
+- Cannot browse or discover other channels
+- Restricted feature access
+- Perfect for external collaborators
+
+### Leaving a Team
+
+Users can leave teams they no longer need:
+- Click team menu → **Leave Team**
+- Removes access to all team channels
+- Direct messages remain accessible
+- Can rejoin if team is open or via invitation
+
+<Warning>
+Leaving a team removes you from all channels in that team. You'll lose access to channel history unless the team or channels are public.
+</Warning>
+
+## Multi-Team Experience
+
+### Team Switching
+
+Users can belong to multiple teams simultaneously:
+
+**Navigation**:
+- Team icons displayed in left sidebar
+- Click team icon to switch
+- Keyboard shortcut: `Cmd/Ctrl + Alt + [Number]`
+- Unread indicators on team icons
+
+**Team Selector**:
+```
+┌─────────────────┐
+│  AC  ← Acme Corp
+│ [2] ← Unread count
+├─────────────────┤  
+│  EN  ← Engineering
+├─────────────────┤
+│  MK  ← Marketing  
+├─────────────────┤
+│  +   ← Join/Create
+└─────────────────┘
+```
+
+### Cross-Team Features
+
+**Direct Messages**:
+- Work across all teams
+- Message any user regardless of team membership
+- Single DM conversation appears in all teams
+- Truly organization-wide communication
+
+**Global User Search**:
+- Find and message users from any team
+- See user's team affiliations
+- Add users from other teams to channels (with permissions)
+
+**Unified Notifications**:
+- Aggregated notification settings
+- Team-specific notification customization
+- Global "Do Not Disturb" affects all teams
+
+## Team Administration
+
+### Team Statistics
+
+Monitor team health and usage:
+- Total team members
+- Active users (last 30 days)
+- Total posts in team
+- Channel count
+- File storage used
+- Recent activity trends
+
+### Managing Team Channels
+
+Team admins can oversee all team channels:
+- View all channels (public and private)
+- Archive inactive channels
+- Convert channel privacy (public ↔ private)
+- Manage channel members
+- Enforce naming conventions
+
+### Team Permissions
+
+Fine-grained control over team member capabilities:
+
+**Channel Management**:
+- Who can create public channels
+- Who can create private channels
+- Who can delete channels
+- Who can manage channel members
+
+**Content Management**:
+- Who can edit posts
+- Who can delete posts
+- Post editing time limits
+- File upload restrictions
+
+**Integration Management**:
+- Who can create webhooks
+- Who can create slash commands
+- Who can manage integrations
+- Bot account permissions
+
+<Tip>
+Use permission schemes to create reusable permission sets that can be applied to multiple teams.
+</Tip>
+
+## Team Archiving and Deletion
+
+### Archiving Teams
+
+Preserve team history while removing active access:
+- Soft delete preserves all data
+- Team and channels become read-only
+- Searchable for historical reference
+- Can be restored if needed
+- Useful for completed projects or inactive teams
+
+### Deleting Teams
+
+**Permanent Deletion** (System Admin only):
+- Complete removal of team and all channels
+- Cannot be undone
+- All messages and files deleted
+- Use with extreme caution
+
+<Warning>
+Team deletion is permanent and irreversible. Archive teams instead to preserve history.
+</Warning>
+
+### Cloud Limits Archiving
+
+For cloud installations with team limits:
+- Oldest teams automatically archived when limit exceeded
+- Marked with `CloudLimitsArchived` flag
+- Automatically restored when under limit
+- Based on team creation date
+
+## Team Collaboration Patterns
+
+### Organizational Structure
+
+**Department-Based**:
+```
+Engineering Team
+Marketing Team  
+Sales Team
+Support Team
+```
+Pros: Clear ownership, aligns with org chart
+Cons: Can create silos
+
+**Project-Based**:
+```
+Project Alpha Team
+Project Beta Team
+BAU Operations Team
+```
+Pros: Cross-functional collaboration, focused
+Cons: Users in many teams, complex navigation
+
+**Location-Based**:
+```
+San Francisco Office
+New York Office
+Remote Team
+```
+Pros: Timezone alignment, local context
+Cons: Reduced cross-location collaboration
+
+**Hybrid Approach**:
+```
+All Hands (company-wide)
+Engineering Dept
+Marketing Dept
+Project Apollo (cross-functional)
+SF Office (location)
+```
+Pros: Flexible, supports multiple workflows
+Cons: Requires clear governance
+
+### Best Practices
+
+1. **Start with fewer teams** - One or two company-wide teams often sufficient
+2. **Use channels for organization** - Channels are easier to manage than teams
+3. **Clear naming conventions** - Help users understand team purpose
+4. **Document team purpose** - Set expectations in team description
+5. **Regular cleanup** - Archive completed project teams
+6. **Consistent permissions** - Use permission schemes for predictability
+
+## Team Limits and Scaling
+
+**Default Limits**:
+- Unlimited teams per workspace (varies by edition)
+- Channels per team: Configurable (default ~2,000)
+- Members per team: Thousands supported
+- Teams per user: Unlimited
+
+**Performance Considerations**:
+- Users in 10+ teams may experience slower loading
+- Teams with 10,000+ channels require indexing optimization
+- Direct messages don't count against team limits
+
+<Note>
+Cloud Professional and Enterprise editions may have different team limits. Check your plan for specifics.
+</Note>
+
+## Team Discovery
+
+### Finding Teams to Join
+
+**Team Directory** (if enabled):
+- Browse all open teams
+- Search by team name
+- See team descriptions
+- View member count
+- Join with one click
+
+**Invitation Links**:
+- Receive link from team member
+- Click to join immediately
+- Works across email/chat/web
+
+**Email Domain Auto-Join**:
+- Teams with domain restrictions listed
+- Automatic eligibility for company email users
+- Seamless onboarding experience
+
+## Related Features
+
+- [Channels](/features/channels) - Organize conversations within teams
+- [Messaging](/features/messaging) - Communicate across teams
+- [Integrations](/features/integrations) - Enhance teams with tools
+- [Plugins](/features/plugins) - Extend team functionality

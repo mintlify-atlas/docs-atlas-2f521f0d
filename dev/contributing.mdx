@@ -1,0 +1,432 @@
+---
+title: Contributing Guidelines
+description: Guidelines for contributing code to Mattermost
+---
+
+Thank you for your interest in contributing to Mattermost! This guide will help you understand the contribution process and best practices.
+
+## Getting Started
+
+Before contributing, please:
+
+1. Set up your [development environment](/dev/setup)
+2. Understand the [system architecture](/dev/architecture)
+3. Read the [Mattermost Contribution Guide](https://developers.mattermost.com/contribute/getting-started/)
+4. Join the [Contributors community channel](https://community.mattermost.com/core/channels/tickets)
+
+<Note>
+  New to open source? Check out the ["Help Wanted" issues](https://github.com/mattermost/mattermost-server/issues?q=is%3Aissue+is%3Aopen+label%3A%22Help+Wanted%22) for beginner-friendly contributions.
+</Note>
+
+## Code Style Guidelines
+
+### Go Backend Style
+
+<Steps>
+  <Step title="Follow standard Go conventions">
+    - Use `gofmt` for formatting (automatically enforced)
+    - Follow [Effective Go](https://golang.org/doc/effective_go.html) guidelines
+    - Use meaningful variable and function names
+    - Keep functions focused and concise
+  </Step>
+
+  <Step title="Run linters before submitting">
+    ```bash
+    # Check code style
+    make check-style
+    
+    # Run go vet
+    make vet
+    
+    # Run golangci-lint
+    make golangci-lint
+    ```
+  </Step>
+
+  <Step title="Follow project-specific patterns">
+    - Use structured logging (not `fmt.Println`)
+    - Handle errors explicitly (no silent failures)
+    - Use context for request-scoped values
+    - Add license headers to new files
+  </Step>
+</Steps>
+
+### React/TypeScript Style
+
+The webapp follows a comprehensive [Style Guide](https://github.com/mattermost/mattermost/blob/master/webapp/STYLE_GUIDE.md). Key points:
+
+<Steps>
+  <Step title="Component structure">
+    - Write functional components with hooks (not class components)
+    - Use `useSelector`/`useDispatch` for Redux (not `connect`)
+    - Break large components into smaller, focused components
+    - Co-locate styles with components (e.g., `component.tsx` + `component.scss`)
+    
+    ```typescript
+    // ✅ Good: Functional component with hooks
+    export default function MyComponent() {
+        const user = useSelector(getCurrentUser);
+        const dispatch = useDispatch();
+        
+        const handleClick = useCallback(() => {
+            dispatch(someAction());
+        }, [dispatch]);
+        
+        return <button onClick={handleClick}>{user.username}</button>;
+    }
+    ```
+  </Step>
+
+  <Step title="Styling conventions">
+    - Use BEM-style class naming: `.ComponentName__element`
+    - Wrap component styles in a root class matching the component name
+    - Use theme variables for colors: `color: var(--link-color)`
+    - Avoid `!important` (over 300 instances being cleaned up)
+    
+    ```scss
+    // MyComponent.scss
+    .MyComponent {
+        padding: 12px;
+        color: var(--center-channel-color);
+        
+        &__title {
+            font-weight: 600;
+        }
+        
+        &.compact {
+            padding: 8px;
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Accessibility requirements">
+    - Use semantic HTML elements (`button`, `input`, `h2`, etc.)
+    - Provide accessible names for interactive elements
+    - Support keyboard navigation
+    - Test with screen readers when possible
+    
+    ```typescript
+    // ✅ Good: Semantic HTML with accessibility
+    <button
+        aria-label="Close modal"
+        onClick={handleClose}
+    >
+        <CloseIcon />
+    </button>
+    
+    // ❌ Bad: Non-semantic with missing accessibility
+    <div onClick={handleClose}>
+        <CloseIcon />
+    </div>
+    ```
+  </Step>
+
+  <Step title="Run style checks">
+    ```bash
+    cd webapp
+    
+    # Check style
+    make check-style
+    
+    # Fix auto-fixable issues
+    make fix-style
+    
+    # Check TypeScript types
+    make check-types
+    ```
+  </Step>
+</Steps>
+
+### Testing Requirements
+
+<Steps>
+  <Step title="Write tests for all new code">
+    - **Go**: Use table-driven tests with `testing` package
+    - **React**: Use React Testing Library (not Enzyme)
+    - Aim for meaningful test coverage, not just high percentages
+  </Step>
+
+  <Step title="Go testing patterns">
+    ```go
+    func TestUserService(t *testing.T) {
+        tests := []struct {
+            name    string
+            input   string
+            want    string
+            wantErr bool
+        }{
+            {"valid user", "john@example.com", "john", false},
+            {"invalid email", "not-an-email", "", true},
+        }
+        
+        for _, tt := range tests {
+            t.Run(tt.name, func(t *testing.T) {
+                got, err := ExtractUsername(tt.input)
+                if (err != nil) != tt.wantErr {
+                    t.Errorf("unexpected error: %v", err)
+                }
+                if got != tt.want {
+                    t.Errorf("got %v, want %v", got, tt.want)
+                }
+            })
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="React testing patterns">
+    ```typescript
+    import {renderWithContext, screen, userEvent} from 'utils/test_helper';
+    
+    describe('MyComponent', () => {
+        test('should handle button click', async () => {
+            const mockAction = jest.fn();
+            
+            renderWithContext(
+                <MyComponent onAction={mockAction} />
+            );
+            
+            const button = screen.getByRole('button', {name: 'Submit'});
+            await userEvent.click(button);
+            
+            expect(mockAction).toHaveBeenCalledTimes(1);
+        });
+    });
+    ```
+    
+    <Note>
+      Use `renderWithContext` for components that need Redux, i18n, or React Router context.
+    </Note>
+  </Step>
+
+  <Step title="Run tests before submitting">
+    <CodeGroup>
+    ```bash Server Tests
+    cd server
+    
+    # Run all tests
+    make test-server
+    
+    # Run quick tests only
+    make test-server-quick
+    
+    # Run specific package
+    go test ./channels/app/...
+    ```
+    
+    ```bash Webapp Tests
+    cd webapp
+    
+    # Run all tests
+    make test
+    
+    # Or use npm
+    npm test
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Pull Request Process
+
+<Steps>
+  <Step title="Find or create an issue">
+    - Check for existing issues related to your change
+    - For bug fixes, reference the issue number
+    - For new features, discuss in an issue first
+    - Look for ["Help Wanted"](https://github.com/mattermost/mattermost-server/issues?q=is%3Aissue+is%3Aopen+label%3A%22Help+Wanted%22) issues
+  </Step>
+
+  <Step title="Fork and create a branch">
+    ```bash
+    # Fork the repository on GitHub, then:
+    git clone https://github.com/YOUR_USERNAME/mattermost.git
+    cd mattermost
+    
+    # Add upstream remote
+    git remote add upstream https://github.com/mattermost/mattermost.git
+    
+    # Create a feature branch
+    git checkout -b fix-issue-1234
+    ```
+  </Step>
+
+  <Step title="Make your changes">
+    - Write clear, focused commits
+    - Follow the code style guidelines above
+    - Add/update tests for your changes
+    - Update documentation if needed
+  </Step>
+
+  <Step title="Test your changes">
+    ```bash
+    # Run linters
+    cd server && make check-style
+    cd webapp && make check-style
+    
+    # Run tests
+    cd server && make test-server
+    cd webapp && make test
+    
+    # Test manually
+    cd server && make run
+    ```
+  </Step>
+
+  <Step title="Commit your changes">
+    Write clear commit messages following this format:
+    
+    ```
+    Brief summary (50 chars or less)
+    
+    More detailed explanation if needed. Explain the problem this
+    commit solves and why this approach was chosen.
+    
+    Fixes #1234
+    ```
+    
+    <Note>
+      Reference issue numbers using `Fixes #1234` or `Relates to #1234`
+    </Note>
+  </Step>
+
+  <Step title="Push and create a pull request">
+    ```bash
+    # Push your branch
+    git push origin fix-issue-1234
+    
+    # Create a pull request on GitHub
+    ```
+    
+    In your PR description:
+    - Summarize the changes and why they're needed
+    - Include before/after screenshots for UI changes
+    - List testing steps for reviewers
+    - Reference related issues
+    - Check off the PR template checklist
+  </Step>
+
+  <Step title="Code review process">
+    Your PR will go through [code review](https://developers.mattermost.com/contribute/getting-started/code-review/):
+    
+    - Reviewers will provide feedback
+    - Address comments by pushing new commits
+    - CI tests must pass
+    - At least one approval required from maintainers
+    - PR will be merged when approved
+    
+    <Note>
+      Be patient! Reviewers are volunteers and may take time to respond. Feel free to ping in the Contributors channel if there's no response after a week.
+    </Note>
+  </Step>
+</Steps>
+
+## Commit Message Guidelines
+
+Good commit messages help maintain a clean history:
+
+```bash
+# ✅ Good commit messages
+git commit -m "Fix channel sidebar scroll position persistence
+
+The sidebar scroll position was not being saved when switching
+channels. This adds local storage caching to preserve the scroll
+state.
+
+Fixes #12345"
+
+# ❌ Bad commit messages
+git commit -m "fix bug"           # Too vague
+git commit -m "WIP"               # Not descriptive
+git commit -m "code review fixes" # Should be squashed
+```
+
+**Best practices:**
+- Use imperative mood ("Fix" not "Fixed" or "Fixes")
+- Keep the subject line under 50 characters
+- Capitalize the subject line
+- Don't end the subject line with a period
+- Separate subject from body with a blank line
+- Wrap the body at 72 characters
+- Explain what and why, not how
+
+## Database Migrations
+
+When adding database schema changes:
+
+```bash
+cd server
+
+# Create a new migration
+make new-migration name=add_user_preferences_table
+
+# This creates a new file in channels/db/migrations/
+```
+
+- Write both `up` and `down` migrations
+- Test migrations on a clean database
+- Ensure migrations are idempotent when possible
+- Document any breaking changes
+
+## API Changes
+
+When modifying the API:
+
+1. Update the OpenAPI spec in `api/v4/source/`
+2. Add/update API tests
+3. Update Client4 in `webapp/platform/client/`
+4. Document breaking changes
+5. Consider backwards compatibility
+
+## Internationalization (i18n)
+
+All user-facing text must be translatable:
+
+```typescript
+// ✅ Good: Translatable
+import {FormattedMessage} from 'react-intl';
+
+<FormattedMessage
+    id="channel.header.title"
+    defaultMessage="Channel Settings"
+/>
+
+// ❌ Bad: Hard-coded text
+<div>Channel Settings</div>
+```
+
+Extract translation strings:
+
+```bash
+cd webapp
+make i18n-extract
+```
+
+## License Headers
+
+All new files must include the license header:
+
+```go
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+```
+
+## Getting Help
+
+- **Community channel**: [Contributors channel](https://community.mattermost.com/core/channels/tickets)
+- **Developer docs**: [developers.mattermost.com](https://developers.mattermost.com/)
+- **API docs**: [api.mattermost.com](https://api.mattermost.com/)
+- **GitHub discussions**: [GitHub Discussions](https://github.com/mattermost/mattermost/discussions)
+
+## Additional Resources
+
+- [Mattermost Contribution Guide](https://developers.mattermost.com/contribute/getting-started/)
+- [Contribution Guidelines Handbook](https://handbook.mattermost.com/contributors/contributors/guidelines/contribution-guidelines)
+- [Code Review Process](https://developers.mattermost.com/contribute/getting-started/code-review/)
+- [Webapp Style Guide](https://github.com/mattermost/mattermost/blob/master/webapp/STYLE_GUIDE.md)
+- [Developer Setup](https://developers.mattermost.com/contribute/server/developer-setup/)
+
+## Code of Conduct
+
+By participating in this project, you agree to abide by the Mattermost [Code of Conduct](https://handbook.mattermost.com/contributors/contributors/guidelines/contribution-guidelines#code-of-conduct). Please be respectful and constructive in all interactions.

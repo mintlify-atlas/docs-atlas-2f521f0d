@@ -1,0 +1,632 @@
+---
+title: 'Teams API'
+description: 'Create, manage, and interact with teams'
+---
+
+## Overview
+
+The Teams API provides endpoints for managing teams, team membership, and team-related operations in Mattermost.
+
+## Create Team
+
+Create a new team on the system.
+
+```http
+POST /api/v4/teams
+```
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Unique handler for the team (will be in the team URL)
+</ParamField>
+
+<ParamField body="display_name" type="string" required>
+  Non-unique display name for the team
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  Team type: `O` for open, `I` for invite-only
+</ParamField>
+
+### Example Request
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:8065/api/v4/teams \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "engineering",
+    "display_name": "Engineering Team",
+    "type": "O"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8065/api/v4/teams', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer your-token',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'engineering',
+    display_name: 'Engineering Team',
+    type: 'O'
+  })
+});
+```
+</CodeGroup>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Unique team identifier
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Team URL handle
+</ResponseField>
+
+<ResponseField name="display_name" type="string">
+  Team display name
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Team type (O=open, I=invite-only)
+</ResponseField>
+
+<ResponseField name="create_at" type="integer">
+  Creation timestamp in milliseconds
+</ResponseField>
+
+```json Response Example
+{
+  "id": "team123abc",
+  "create_at": 1507840900004,
+  "update_at": 1507840900004,
+  "delete_at": 0,
+  "display_name": "Engineering Team",
+  "name": "engineering",
+  "description": "",
+  "email": "",
+  "type": "O",
+  "allow_open_invite": true
+}
+```
+
+## Get Team
+
+Retrieve a single team by ID.
+
+```http
+GET /api/v4/teams/{team_id}
+```
+
+### Path Parameters
+
+<ParamField path="team_id" type="string" required>
+  Team GUID
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/teams/{team_id}
+```
+
+## Get Teams
+
+Retrieve a paginated list of teams.
+
+```http
+GET /api/v4/teams
+```
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number to retrieve
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="60">
+  Number of teams per page
+</ParamField>
+
+<ParamField query="include_total_count" type="boolean" default="false">
+  Include total count in response
+</ParamField>
+
+<ParamField query="exclude_policy_constrained" type="boolean" default="false">
+  Exclude teams with data retention policies (requires `sysconsole_read_compliance`)
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/teams?page=0&per_page=50'
+```
+
+## Get Team by Name
+
+Retrieve a team by its URL name.
+
+```http
+GET /api/v4/teams/name/{name}
+```
+
+### Path Parameters
+
+<ParamField path="name" type="string" required>
+  Team URL name (e.g., "engineering")
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/teams/name/engineering
+```
+
+## Update Team
+
+Update a team's information.
+
+```http
+PUT /api/v4/teams/{team_id}
+```
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  Team ID (must match path parameter)
+</ParamField>
+
+<ParamField body="display_name" type="string" required>
+  Team display name
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Team description
+</ParamField>
+
+<ParamField body="company_name" type="string" required>
+  Company name
+</ParamField>
+
+<ParamField body="allowed_domains" type="string" required>
+  Comma-separated list of allowed email domains
+</ParamField>
+
+<ParamField body="invite_id" type="string" required>
+  Team invite ID
+</ParamField>
+
+<ParamField body="allow_open_invite" type="boolean" required>
+  Allow open invitations
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/teams/{team_id} \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "id": "team123abc",
+    "display_name": "Engineering Team",
+    "description": "Our engineering department",
+    "company_name": "Acme Corp",
+    "allowed_domains": "acme.com",
+    "invite_id": "inviteid123",
+    "allow_open_invite": true
+  }'
+```
+
+## Patch Team
+
+Partially update a team (only specified fields are updated).
+
+```http
+PUT /api/v4/teams/{team_id}/patch
+```
+
+### Request Body
+
+<ParamField body="display_name" type="string">
+  Team display name
+</ParamField>
+
+<ParamField body="description" type="string">
+  Team description
+</ParamField>
+
+<ParamField body="company_name" type="string">
+  Company name
+</ParamField>
+
+<ParamField body="allow_open_invite" type="boolean">
+  Allow open invitations
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/teams/{team_id}/patch \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"description": "Updated team description"}'
+```
+
+## Delete Team
+
+Soft delete a team (marks as deleted in database).
+
+```http
+DELETE /api/v4/teams/{team_id}
+```
+
+### Query Parameters
+
+<ParamField query="permanent" type="boolean" default="false">
+  Permanently delete the team (requires `ServiceSettings.EnableAPITeamDeletion = true`)
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X DELETE \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/teams/{team_id}
+```
+
+<Warning>
+Permanent deletion cannot be undone and removes all team data.
+</Warning>
+
+## Search Teams
+
+Search for teams based on search criteria.
+
+```http
+POST /api/v4/teams/search
+```
+
+### Request Body
+
+<ParamField body="term" type="string">
+  Search term to match against team name or display name
+</ParamField>
+
+<ParamField body="page" type="string">
+  Page number (for pagination)
+</ParamField>
+
+<ParamField body="per_page" type="string">
+  Number of entries per page
+</ParamField>
+
+<ParamField body="allow_open_invite" type="boolean">
+  Filter by allow_open_invite setting
+</ParamField>
+
+<ParamField body="group_constrained" type="boolean">
+  Filter by group_constrained setting
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/teams/search \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"term": "engineering"}'
+```
+
+## Get Team Members
+
+Get a paginated list of team members.
+
+```http
+GET /api/v4/teams/{team_id}/members
+```
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="60">
+  Members per page
+</ParamField>
+
+<ParamField query="sort" type="string" default="">
+  Sort by: "" (UserID) or "Username"
+</ParamField>
+
+<ParamField query="exclude_deleted_users" type="boolean" default="false">
+  Exclude deleted users from results
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/teams/{team_id}/members?page=0&per_page=50'
+```
+
+## Add Team Member
+
+Add a user to a team.
+
+```http
+POST /api/v4/teams/{team_id}/members
+```
+
+### Request Body
+
+<ParamField body="team_id" type="string">
+  Team ID
+</ParamField>
+
+<ParamField body="user_id" type="string">
+  User ID to add
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/teams/{team_id}/members \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "team_id": "team123abc",
+    "user_id": "user456def"
+  }'
+```
+
+## Remove Team Member
+
+Remove a user from a team.
+
+```http
+DELETE /api/v4/teams/{team_id}/members/{user_id}
+```
+
+### Path Parameters
+
+<ParamField path="team_id" type="string" required>
+  Team GUID
+</ParamField>
+
+<ParamField path="user_id" type="string" required>
+  User GUID
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X DELETE \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/teams/{team_id}/members/{user_id}
+```
+
+## Get Teams for User
+
+Get all teams that a user is a member of.
+
+```http
+GET /api/v4/users/{user_id}/teams
+```
+
+### Path Parameters
+
+<ParamField path="user_id" type="string" required>
+  User GUID (or `me`)
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/users/me/teams
+```
+
+## Get Team Stats
+
+Get statistics for a team.
+
+```http
+GET /api/v4/teams/{team_id}/stats
+```
+
+### Response
+
+<ResponseField name="team_id" type="string">
+  Team ID
+</ResponseField>
+
+<ResponseField name="total_member_count" type="integer">
+  Total number of team members
+</ResponseField>
+
+```json Response Example
+{
+  "team_id": "team123abc",
+  "total_member_count": 47
+}
+```
+
+## Invite Users to Team
+
+Invite users to a team via email.
+
+```http
+POST /api/v4/teams/{team_id}/invite/email
+```
+
+### Request Body
+
+Array of email addresses:
+
+```json
+["user1@example.com", "user2@example.com"]
+```
+
+<Note>
+Rate limited to 20 emails per hour with a burst of 20.
+</Note>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/teams/{team_id}/invite/email \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '["john@example.com", "jane@example.com"]'
+```
+
+## Update Team Member Roles
+
+Update a team member's roles.
+
+```http
+PUT /api/v4/teams/{team_id}/members/{user_id}/roles
+```
+
+### Request Body
+
+<ParamField body="roles" type="string" required>
+  Space-separated roles: "team_user", "team_admin", or both
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT \
+  http://localhost:8065/api/v4/teams/{team_id}/members/{user_id}/roles \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"roles": "team_user team_admin"}'
+```
+
+## Get Team Unreads
+
+Get unread message counts for teams.
+
+```http
+GET /api/v4/users/{user_id}/teams/unread
+```
+
+### Query Parameters
+
+<ParamField query="exclude_team" type="string" required>
+  Team ID to exclude from results
+</ParamField>
+
+<ParamField query="include_collapsed_threads" type="boolean" default="false">
+  Include collapsed threads in count
+</ParamField>
+
+### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/users/me/teams/unread?exclude_team=teamid123'
+```
+
+## Update Team Privacy
+
+Convert a team between public and private.
+
+```http
+PUT /api/v4/teams/{team_id}/privacy
+```
+
+### Request Body
+
+<ParamField body="privacy" type="string" required>
+  Team privacy: `O` for public (open), `I` for private (invite-only)
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/teams/{team_id}/privacy \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"privacy": "I"}'
+```
+
+<Note>
+Minimum server version: 5.24
+</Note>
+
+## Restore Team
+
+Restore a soft-deleted team.
+
+```http
+POST /api/v4/teams/{team_id}/restore
+```
+
+### Example Request
+
+```bash
+curl -X POST \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/teams/{team_id}/restore
+```
+
+## Check Team Exists
+
+Check if a team exists by name.
+
+```http
+GET /api/v4/teams/name/{name}/exists
+```
+
+### Response
+
+```json
+{
+  "exists": true
+}
+```
+
+## Permissions
+
+| Operation | Required Permission |
+|-----------|--------------------|
+| Create team | `create_team` |
+| Get team | `view_team` |
+| Update team | `manage_team` |
+| Delete team | `manage_team` |
+| Add member | `add_user_to_team` or self on open team |
+| Remove member | `remove_user_from_team` or self |
+| Update roles | `manage_team_roles` |
+| Invite users | `invite_user` and `add_user_to_team` |
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `400` | Invalid parameters |
+| `401` | Not authenticated |
+| `403` | Insufficient permissions |
+| `404` | Team not found |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Channels API" icon="hashtag" href="/api/channels">
+    Manage team channels
+  </Card>
+  <Card title="Posts API" icon="message" href="/api/posts">
+    Create and manage posts
+  </Card>
+</CardGroup>

@@ -1,0 +1,632 @@
+---
+title: Backup & Restore
+description: Backup strategies, disaster recovery procedures, and data restoration for Mattermost
+---
+
+Regular backups are critical for disaster recovery and data protection. Mattermost requires backing up both the database and file storage.
+
+## Backup Components
+
+A complete Mattermost backup includes:
+
+1. **PostgreSQL Database** - User data, messages, channels, teams
+2. **File Storage** - Uploaded files, attachments, profile images
+3. **Configuration** - `config.json` and environment variables
+4. **Plugins** - Custom and installed plugins
+5. **Custom Branding** - Custom logos, icons, themes
+
+<Warning>
+  **Critical:** Always test your backup restoration process regularly. Backups are only useful if they can be successfully restored.
+</Warning>
+
+## Database Backup
+
+### PostgreSQL Backup with pg_dump
+
+<Steps>
+  <Step title="Create Backup Directory">
+    ```bash
+    mkdir -p /var/backups/mattermost
+    chmod 700 /var/backups/mattermost
+    ```
+  </Step>
+  
+  <Step title="Backup Database">
+    ```bash
+    # Full database backup
+    pg_dump -U mmuser -h localhost mattermost > /var/backups/mattermost/mattermost-$(date +%Y%m%d-%H%M%S).sql
+    
+    # Compressed backup (recommended)
+    pg_dump -U mmuser -h localhost mattermost | gzip > /var/backups/mattermost/mattermost-$(date +%Y%m%d-%H%M%S).sql.gz
+    
+    # Custom format (supports parallel restore)
+    pg_dump -U mmuser -h localhost -Fc mattermost > /var/backups/mattermost/mattermost-$(date +%Y%m%d-%H%M%S).dump
+    ```
+  </Step>
+  
+  <Step title="Verify Backup">
+    ```bash
+    # Check file size (should not be 0)
+    ls -lh /var/backups/mattermost/
+    
+    # Test gzip integrity
+    gzip -t /var/backups/mattermost/mattermost-*.sql.gz
+    ```
+  </Step>
+</Steps>
+
+### Automated Database Backups
+
+Create a backup script:
+
+```bash
+#!/bin/bash
+# /usr/local/bin/backup-mattermost-db.sh
+
+set -e
+
+# Configuration
+BACKUP_DIR="/var/backups/mattermost"
+DB_NAME="mattermost"
+DB_USER="mmuser"
+DB_HOST="localhost"
+RETENTION_DAYS=30
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+BACKUP_FILE="${BACKUP_DIR}/mattermost-db-${TIMESTAMP}.sql.gz"
+
+# Create backup directory
+mkdir -p "${BACKUP_DIR}"
+
+# Backup database
+echo "Starting backup at $(date)"
+pg_dump -U "${DB_USER}" -h "${DB_HOST}" "${DB_NAME}" | gzip > "${BACKUP_FILE}"
+
+# Verify backup
+if [ -f "${BACKUP_FILE}" ]; then
+    SIZE=$(stat -f%z "${BACKUP_FILE}" 2>/dev/null || stat -c%s "${BACKUP_FILE}")
+    if [ "${SIZE}" -gt 1000 ]; then
+        echo "Backup successful: ${BACKUP_FILE} (${SIZE} bytes)"
+    else
+        echo "ERROR: Backup file too small: ${SIZE} bytes"
+        exit 1
+    fi
+else
+    echo "ERROR: Backup file not created"
+    exit 1
+fi
+
+# Delete old backups
+find "${BACKUP_DIR}" -name "mattermost-db-*.sql.gz" -mtime +${RETENTION_DAYS} -delete
+echo "Deleted backups older than ${RETENTION_DAYS} days"
+
+echo "Backup completed at $(date)"
+```
+
+Make executable and schedule:
+
+```bash
+# Make executable
+chmod +x /usr/local/bin/backup-mattermost-db.sh
+
+# Add to crontab (daily at 2 AM)
+crontab -e
+
+# Add this line:
+0 2 * * * /usr/local/bin/backup-mattermost-db.sh >> /var/log/mattermost-backup.log 2>&1
+```
+
+### Docker PostgreSQL Backup
+
+```bash
+# Backup from Docker container
+docker exec mattermost-postgres pg_dump -U mmuser mattermost | gzip > mattermost-backup-$(date +%Y%m%d).sql.gz
+
+# Using docker compose
+docker compose exec -T postgres pg_dump -U mmuser mattermost | gzip > mattermost-backup-$(date +%Y%m%d).sql.gz
+```
+
+## File Storage Backup
+
+### Local File Storage Backup
+
+```bash
+# Backup local data directory
+tar -czf /var/backups/mattermost/files-$(date +%Y%m%d-%H%M%S).tar.gz \
+    /opt/mattermost/data
+
+# Using rsync for incremental backups
+rsync -av --delete \
+    /opt/mattermost/data/ \
+    /var/backups/mattermost/data-backup/
+```
+
+### S3 File Storage Backup
+
+If using S3, enable versioning and backup policies:
+
+```bash
+# Enable S3 versioning
+aws s3api put-bucket-versioning \
+    --bucket mattermost-files \
+    --versioning-configuration Status=Enabled
+
+# Create lifecycle policy for backups
+cat > lifecycle-policy.json << EOF
+{
+  "Rules": [
+    {
+      "Id": "DeleteOldVersions",
+      "Status": "Enabled",
+      "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 90
+      }
+    },
+    {
+      "Id": "TransitionToGlacier",
+      "Status": "Enabled",
+      "Transitions": [
+        {
+          "Days": 30,
+          "StorageClass": "GLACIER"
+        }
+      ]
+    }
+  ]
+}
+EOF
+
+aws s3api put-bucket-lifecycle-configuration \
+    --bucket mattermost-files \
+    --lifecycle-configuration file://lifecycle-policy.json
+
+# Create cross-region replication
+aws s3api put-bucket-replication \
+    --bucket mattermost-files \
+    --replication-configuration file://replication-config.json
+```
+
+## Configuration Backup
+
+```bash
+# Backup configuration
+cp /opt/mattermost/config/config.json \
+    /var/backups/mattermost/config-$(date +%Y%m%d-%H%M%S).json
+
+# Backup plugins
+tar -czf /var/backups/mattermost/plugins-$(date +%Y%m%d-%H%M%S).tar.gz \
+    /opt/mattermost/plugins/
+
+# Backup custom branding
+tar -czf /var/backups/mattermost/branding-$(date +%Y%m%d-%H%M%S).tar.gz \
+    /opt/mattermost/client/images/
+```
+
+## Complete Backup Script
+
+Comprehensive backup script for all components:
+
+```bash
+#!/bin/bash
+# /usr/local/bin/backup-mattermost-full.sh
+
+set -e
+
+# Configuration
+BACKUP_ROOT="/var/backups/mattermost"
+MATTERMOST_HOME="/opt/mattermost"
+DB_NAME="mattermost"
+DB_USER="mmuser"
+DB_HOST="localhost"
+RETENTION_DAYS=30
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+BACKUP_DIR="${BACKUP_ROOT}/${TIMESTAMP}"
+
+# Create backup directory
+mkdir -p "${BACKUP_DIR}"
+
+echo "========================================"
+echo "Mattermost Full Backup"
+echo "Started: $(date)"
+echo "========================================"
+
+# 1. Backup database
+echo "[1/5] Backing up database..."
+pg_dump -U "${DB_USER}" -h "${DB_HOST}" "${DB_NAME}" | \
+    gzip > "${BACKUP_DIR}/database.sql.gz"
+echo "Database backup: ${BACKUP_DIR}/database.sql.gz"
+
+# 2. Backup file storage (if local)
+if [ -d "${MATTERMOST_HOME}/data" ]; then
+    echo "[2/5] Backing up file storage..."
+    tar -czf "${BACKUP_DIR}/files.tar.gz" -C "${MATTERMOST_HOME}" data/
+    echo "File storage backup: ${BACKUP_DIR}/files.tar.gz"
+else
+    echo "[2/5] Skipping file storage (using S3)"
+fi
+
+# 3. Backup configuration
+echo "[3/5] Backing up configuration..."
+cp "${MATTERMOST_HOME}/config/config.json" "${BACKUP_DIR}/config.json"
+echo "Configuration backup: ${BACKUP_DIR}/config.json"
+
+# 4. Backup plugins
+echo "[4/5] Backing up plugins..."
+if [ -d "${MATTERMOST_HOME}/plugins" ]; then
+    tar -czf "${BACKUP_DIR}/plugins.tar.gz" -C "${MATTERMOST_HOME}" plugins/
+    echo "Plugins backup: ${BACKUP_DIR}/plugins.tar.gz"
+fi
+
+# 5. Create manifest
+echo "[5/5] Creating backup manifest..."
+cat > "${BACKUP_DIR}/manifest.txt" << EOF
+Mattermost Backup Manifest
+==========================
+Backup Date: $(date)
+Timestamp: ${TIMESTAMP}
+Mattermost Version: $(cat ${MATTERMOST_HOME}/VERSION 2>/dev/null || echo "Unknown")
+
+Backup Contents:
+EOF
+ls -lh "${BACKUP_DIR}" >> "${BACKUP_DIR}/manifest.txt"
+
+# Create compressed archive of everything
+echo "Creating final archive..."
+tar -czf "${BACKUP_ROOT}/mattermost-full-${TIMESTAMP}.tar.gz" -C "${BACKUP_ROOT}" "${TIMESTAMP}"
+rm -rf "${BACKUP_DIR}"
+
+echo "========================================"
+echo "Backup completed: ${BACKUP_ROOT}/mattermost-full-${TIMESTAMP}.tar.gz"
+echo "Size: $(du -h ${BACKUP_ROOT}/mattermost-full-${TIMESTAMP}.tar.gz | cut -f1)"
+echo "========================================"
+
+# Cleanup old backups
+find "${BACKUP_ROOT}" -name "mattermost-full-*.tar.gz" -mtime +${RETENTION_DAYS} -delete
+echo "Cleaned up backups older than ${RETENTION_DAYS} days"
+
+exit 0
+```
+
+## Database Restoration
+
+### Restore from pg_dump
+
+<Steps>
+  <Step title="Stop Mattermost">
+    ```bash
+    # Systemd
+    sudo systemctl stop mattermost
+    
+    # Docker
+    docker compose stop mattermost
+    ```
+  </Step>
+  
+  <Step title="Drop and Recreate Database">
+    ```bash
+    # Connect to PostgreSQL
+    psql -U postgres
+    
+    # Drop existing database
+    DROP DATABASE mattermost;
+    
+    # Create new database
+    CREATE DATABASE mattermost;
+    GRANT ALL PRIVILEGES ON DATABASE mattermost TO mmuser;
+    \q
+    ```
+  </Step>
+  
+  <Step title="Restore Data">
+    ```bash
+    # From plain SQL dump
+    psql -U mmuser -h localhost mattermost < mattermost-backup.sql
+    
+    # From gzipped dump
+    gunzip -c mattermost-backup.sql.gz | psql -U mmuser -h localhost mattermost
+    
+    # From custom format (parallel restore)
+    pg_restore -U mmuser -h localhost -d mattermost -j 4 mattermost-backup.dump
+    ```
+  </Step>
+  
+  <Step title="Verify Restoration">
+    ```bash
+    # Check table count
+    psql -U mmuser -h localhost mattermost -c "\dt" | wc -l
+    
+    # Check user count
+    psql -U mmuser -h localhost mattermost -c "SELECT COUNT(*) FROM users;"
+    ```
+  </Step>
+  
+  <Step title="Start Mattermost">
+    ```bash
+    # Systemd
+    sudo systemctl start mattermost
+    
+    # Docker
+    docker compose start mattermost
+    ```
+  </Step>
+</Steps>
+
+### Docker Database Restore
+
+```bash
+# Stop Mattermost container
+docker compose stop mattermost
+
+# Restore to PostgreSQL container
+gunzip -c mattermost-backup.sql.gz | \
+    docker exec -i mattermost-postgres psql -U mmuser mattermost
+
+# Start Mattermost
+docker compose start mattermost
+```
+
+## File Storage Restoration
+
+### Restore Local Files
+
+```bash
+# Stop Mattermost
+sudo systemctl stop mattermost
+
+# Restore from tar archive
+tar -xzf files-backup.tar.gz -C /
+
+# Or restore with rsync
+rsync -av /var/backups/mattermost/data-backup/ /opt/mattermost/data/
+
+# Fix permissions
+chown -R mattermost:mattermost /opt/mattermost/data
+
+# Start Mattermost
+sudo systemctl start mattermost
+```
+
+### Restore S3 Files
+
+If S3 versioning is enabled:
+
+```bash
+# List object versions
+aws s3api list-object-versions --bucket mattermost-files
+
+# Restore specific version
+aws s3api get-object \
+    --bucket mattermost-files \
+    --key path/to/file \
+    --version-id VERSION_ID \
+    /tmp/restored-file
+```
+
+## Complete System Restore
+
+<Steps>
+  <Step title="Extract Full Backup">
+    ```bash
+    # Extract archive
+    tar -xzf mattermost-full-20240315-020000.tar.gz -C /tmp/
+    
+    # Navigate to backup
+    cd /tmp/20240315-020000
+    ```
+  </Step>
+  
+  <Step title="Restore Database">
+    ```bash
+    # Stop Mattermost
+    docker compose stop mattermost
+    
+    # Restore database
+    gunzip -c database.sql.gz | \
+        docker exec -i mattermost-postgres psql -U mmuser mattermost
+    ```
+  </Step>
+  
+  <Step title="Restore Files">
+    ```bash
+    # Restore file storage (if local)
+    tar -xzf files.tar.gz -C /opt/mattermost/
+    
+    # Fix permissions
+    chown -R mattermost:mattermost /opt/mattermost/data
+    ```
+  </Step>
+  
+  <Step title="Restore Configuration">
+    ```bash
+    # Backup current config
+    cp /opt/mattermost/config/config.json \
+        /opt/mattermost/config/config.json.old
+    
+    # Restore config
+    cp config.json /opt/mattermost/config/
+    ```
+  </Step>
+  
+  <Step title="Restore Plugins">
+    ```bash
+    # Restore plugins
+    tar -xzf plugins.tar.gz -C /opt/mattermost/
+    
+    # Fix permissions
+    chown -R mattermost:mattermost /opt/mattermost/plugins
+    ```
+  </Step>
+  
+  <Step title="Start Mattermost">
+    ```bash
+    docker compose start mattermost
+    
+    # Verify
+    curl http://localhost:8065/api/v4/system/ping
+    ```
+  </Step>
+</Steps>
+
+## Disaster Recovery
+
+### Point-in-Time Recovery (PITR)
+
+For PostgreSQL, enable Write-Ahead Logging (WAL) archiving:
+
+```bash
+# postgresql.conf
+wal_level = replica
+archive_mode = on
+archive_command = 'cp %p /var/lib/postgresql/wal_archive/%f'
+archive_timeout = 300
+```
+
+Create base backup:
+
+```bash
+# Create base backup
+pg_basebackup -U postgres -D /var/backups/postgres/base -Fp -Xs -P
+
+# Restore to specific point in time
+pg_restore --target-time='2024-03-15 14:30:00' ...
+```
+
+### High Availability Backup Strategy
+
+```bash
+# Primary site backup
+- Database: Continuous WAL archiving
+- Files: S3 with cross-region replication
+- Config: Version controlled in Git
+
+# Secondary site
+- Database: Streaming replication + WAL shipping
+- Files: S3 replica bucket
+- Standby Mattermost instance
+```
+
+## Backup Verification
+
+### Automated Restore Testing
+
+```bash
+#!/bin/bash
+# Test backup restoration in isolated environment
+
+BACKUP_FILE="$1"
+TEST_DB="mattermost_restore_test"
+
+# Create test database
+psql -U postgres -c "CREATE DATABASE ${TEST_DB};"
+
+# Restore backup
+gunzip -c "${BACKUP_FILE}" | psql -U postgres -d "${TEST_DB}"
+
+# Verify data
+USER_COUNT=$(psql -U postgres -d "${TEST_DB}" -t -c "SELECT COUNT(*) FROM users;")
+echo "Restored user count: ${USER_COUNT}"
+
+# Cleanup
+psql -U postgres -c "DROP DATABASE ${TEST_DB};"
+
+if [ "${USER_COUNT}" -gt 0 ]; then
+    echo "Backup verification: PASSED"
+    exit 0
+else
+    echo "Backup verification: FAILED"
+    exit 1
+fi
+```
+
+## Backup Best Practices
+
+<Warning>
+  **Backup Checklist:**
+  
+  - [ ] Automate daily database backups
+  - [ ] Enable S3 versioning for file storage
+  - [ ] Store backups off-site (different region/provider)
+  - [ ] Encrypt backups at rest
+  - [ ] Test restoration monthly
+  - [ ] Monitor backup job success/failure
+  - [ ] Document restoration procedures
+  - [ ] Set retention policies (30-90 days recommended)
+  - [ ] Version control configuration files
+  - [ ] Backup before major upgrades
+</Warning>
+
+### Retention Policy Example
+
+```
+- Hourly: Keep last 24 hours
+- Daily: Keep last 30 days
+- Weekly: Keep last 12 weeks
+- Monthly: Keep last 12 months
+- Yearly: Keep indefinitely
+```
+
+### Backup Monitoring
+
+```bash
+# Monitor backup age
+BACKUP_DIR="/var/backups/mattermost"
+LATEST_BACKUP=$(ls -t ${BACKUP_DIR}/mattermost-full-*.tar.gz | head -1)
+BACKUP_AGE=$(( $(date +%s) - $(stat -c %Y "${LATEST_BACKUP}") ))
+BACKUP_AGE_HOURS=$(( BACKUP_AGE / 3600 ))
+
+if [ ${BACKUP_AGE_HOURS} -gt 36 ]; then
+    echo "WARNING: Latest backup is ${BACKUP_AGE_HOURS} hours old"
+    # Send alert
+fi
+```
+
+## Cloud Backup Solutions
+
+### AWS Backup
+
+```bash
+# RDS automated backups
+aws rds modify-db-instance \
+    --db-instance-identifier mattermost-db \
+    --backup-retention-period 30 \
+    --preferred-backup-window "03:00-04:00"
+
+# S3 bucket replication
+aws s3api put-bucket-replication \
+    --bucket mattermost-files \
+    --replication-configuration file://replication.json
+```
+
+## Troubleshooting
+
+### Backup Fails
+
+```bash
+# Check disk space
+df -h /var/backups
+
+# Check PostgreSQL connection
+pg_isready -h localhost -U mmuser
+
+# Check permissions
+ls -la /var/backups/mattermost
+```
+
+### Restore Fails
+
+```bash
+# Check PostgreSQL version compatibility
+psql --version
+
+# Verify backup file integrity
+gzip -t backup.sql.gz
+
+# Check database encoding
+psql -U postgres -c "\l mattermost"
+```
+
+## Related Resources
+
+- [Deployment](/admin/deployment)
+- [Configuration](/admin/configuration)
+- [Monitoring](/admin/monitoring)
+- [Security](/admin/security)

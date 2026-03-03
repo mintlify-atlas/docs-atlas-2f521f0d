@@ -1,0 +1,192 @@
+---
+title: mmctl Overview
+description: Remote CLI tool for managing Mattermost servers
+---
+
+## What is mmctl?
+
+`mmctl` is a remote command-line interface (CLI) tool for managing your Mattermost server. It provides a powerful way to administer Mattermost instances from the terminal, whether you're managing users, teams, channels, or server configuration.
+
+mmctl communicates with the Mattermost server through the REST API, making it ideal for:
+
+- Server administration and maintenance
+- Automation and scripting
+- Bulk operations on users, teams, and channels
+- Configuration management
+- Integration with CI/CD pipelines
+
+## Why Use mmctl?
+
+### Remote Management
+Manage your Mattermost server from anywhere without needing SSH access to the server. mmctl uses the Mattermost API to execute commands remotely.
+
+### Automation-Friendly
+mmctl is designed for scripting and automation. JSON output format support makes it easy to integrate with other tools and scripts.
+
+### Comprehensive Coverage
+mmctl provides commands for virtually all administrative tasks:
+
+- **User Management**: Create, modify, activate/deactivate users
+- **Team Management**: Create, archive, restore teams
+- **Channel Management**: Create, archive, modify channels
+- **Configuration**: Get, set, and manage server configuration
+- **Plugins**: Install, enable, disable, and manage plugins
+- **System Operations**: Check status, manage licenses, control server state
+- **Permissions**: Manage roles and permissions (Enterprise Edition)
+- **Posts**: Create, list, and delete posts
+
+### Local Mode
+For direct server access, mmctl supports local mode using Unix sockets, providing fast and secure communication without network overhead.
+
+## Key Capabilities
+
+<AccordionGroup>
+  <Accordion title="User Administration">
+    - Create and manage user accounts
+    - Activate and deactivate users
+    - Reset passwords and MFA settings
+    - Modify user attributes (email, username, authentication data)
+    - Search and list users
+    - Convert users to bots and vice versa
+    - Promote guests to users and demote users to guests
+    - Migrate authentication methods
+    - Manage user preferences
+  </Accordion>
+
+  <Accordion title="Team & Channel Management">
+    - Create, archive, restore, and delete teams
+    - Manage team privacy (public/private)
+    - Rename teams
+    - Create, archive, unarchive, and delete channels
+    - Move channels between teams
+    - Modify channel privacy settings
+    - Search for channels
+    - List all channels in a team
+  </Accordion>
+
+  <Accordion title="Server Configuration">
+    - View current configuration
+    - Get and set individual config values
+    - Patch configuration with JSON files
+    - Edit configuration interactively
+    - Reset configuration to defaults
+    - Reload server configuration
+    - Migrate configuration between backends
+    - Export configuration
+  </Accordion>
+
+  <Accordion title="Plugin Management">
+    - Install plugins from files or URLs
+    - Enable and disable plugins
+    - List installed plugins
+    - Remove plugins
+    - Force plugin installation/updates
+  </Accordion>
+
+  <Accordion title="System Operations">
+    - Check server version and status
+    - Manage server busy state (high load mode)
+    - Upload and manage licenses
+    - Generate support packets
+    - View server logs
+  </Accordion>
+
+  <Accordion title="Content Management">
+    - Create posts in channels
+    - List posts from channels
+    - Delete posts (soft delete or permanent)
+    - Follow channels for real-time updates
+    - Manage webhooks
+  </Accordion>
+</AccordionGroup>
+
+## Architecture
+
+mmctl operates in two modes:
+
+### Remote Mode (Default)
+
+In remote mode, mmctl communicates with the Mattermost server via HTTPS using the REST API. This requires:
+
+- Network connectivity to the Mattermost server
+- Valid authentication credentials
+- API access enabled on the server
+
+```bash
+# Authenticate to a remote server
+mmctl auth login https://mattermost.example.com --name production
+```
+
+### Local Mode
+
+Local mode uses Unix domain sockets for direct communication with the Mattermost server process. This mode:
+
+- Requires local server access
+- Provides faster performance
+- Bypasses authentication for most commands
+- Ideal for server maintenance tasks
+
+```bash
+# Use local mode
+mmctl --local user list
+```
+
+## Output Formats
+
+mmctl supports multiple output formats:
+
+### Plain Text (Default)
+Human-readable output formatted for terminal display.
+
+```bash
+mmctl user list
+```
+
+### JSON Format
+Machine-readable JSON output for scripting and automation.
+
+```bash
+mmctl user list --json
+```
+
+## Common Use Cases
+
+### Batch User Operations
+Create multiple users, reset passwords, or modify user attributes in bulk using shell scripts.
+
+### Infrastructure as Code
+Manage server configuration as code by storing configuration files in version control.
+
+### Monitoring and Alerting
+Integrate mmctl commands into monitoring systems to check server health and status.
+
+### Migration Tasks
+Migrate users between authentication providers or move channels between teams.
+
+### Backup Automation
+Schedule regular configuration exports and data backups.
+
+## Getting Started
+
+To start using mmctl:
+
+1. [Install mmctl](/cli/installation) on your system
+2. [Configure authentication](/cli/authentication) to your Mattermost server
+3. Explore the [command reference](/cli/commands) for available commands
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/cli/installation">
+    Install mmctl on your operating system
+  </Card>
+  <Card title="Authentication" icon="key" href="/cli/authentication">
+    Set up credentials and connect to your server
+  </Card>
+  <Card title="Commands" icon="terminal" href="/cli/commands">
+    Explore the complete command reference
+  </Card>
+  <Card title="Mattermost Docs" icon="book" href="https://docs.mattermost.com">
+    Visit the main Mattermost documentation
+  </Card>
+</CardGroup>

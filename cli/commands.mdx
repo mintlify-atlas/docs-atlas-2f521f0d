@@ -1,0 +1,1364 @@
+---
+title: Command Reference
+description: Comprehensive reference for all mmctl commands
+---
+
+## Overview
+
+This reference covers all mmctl commands, their options, and usage examples. Commands are organized by category for easy navigation.
+
+## Global Flags
+
+These flags work with all commands:
+
+| Flag | Description |
+|------|-------------|
+| `--config` | Path to configuration file (default: `~/.mmctl/config`) |
+| `--json` | Output in JSON format |
+| `--local` | Use local mode (Unix socket) |
+| `--strict` | Enforce version matching between mmctl and server |
+| `--suppress-warnings` | Disable warning messages |
+| `--insecure-sha1-intermediate` | Allow SHA-1 certificates |
+| `--insecure-tls-version` | Allow TLS 1.0 and 1.1 |
+| `--disable-pager` | Disable paged output |
+| `--quiet` | Suppress output |
+
+## Authentication Commands
+
+<Accordion title="mmctl auth login">
+  Login to a Mattermost instance and store credentials.
+
+  **Syntax:**
+  ```bash
+  mmctl auth login [instance-url] [flags]
+  ```
+
+  **Flags:**
+  - `--name, -n` - Name for the credentials
+  - `--username, -u` - Username for authentication
+  - `--password-file, -f` - File containing password
+  - `--access-token-file, -t` - File containing access token
+  - `--mfa-token, -m` - MFA token (if enabled)
+  - `--no-activate` - Don't activate credentials after login
+
+  **Examples:**
+  ```bash
+  # Interactive login
+  mmctl auth login https://mattermost.example.com
+
+  # Login with username and password file
+  mmctl auth login https://mattermost.example.com \
+    --name prod --username admin --password-file pass.txt
+
+  # Login with MFA
+  mmctl auth login https://mattermost.example.com \
+    --name prod --username admin --password-file pass.txt --mfa-token 123456
+
+  # Login with access token
+  mmctl auth login https://mattermost.example.com \
+    --name prod --access-token-file token.txt
+  ```
+</Accordion>
+
+<Accordion title="mmctl auth current">
+  Show currently active credentials.
+
+  **Syntax:**
+  ```bash
+  mmctl auth current
+  ```
+
+  **Example:**
+  ```bash
+  mmctl auth current
+  # Output: found credentials for "production": "admin@https://mattermost.example.com"
+  ```
+</Accordion>
+
+<Accordion title="mmctl auth list">
+  List all stored credentials.
+
+  **Syntax:**
+  ```bash
+  mmctl auth list
+  ```
+
+  **Example:**
+  ```bash
+  mmctl auth list
+  ```
+</Accordion>
+
+<Accordion title="mmctl auth set">
+  Set active credentials.
+
+  **Syntax:**
+  ```bash
+  mmctl auth set [server-name]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl auth set production
+  ```
+</Accordion>
+
+<Accordion title="mmctl auth renew">
+  Renew authentication credentials.
+
+  **Syntax:**
+  ```bash
+  mmctl auth renew [server-name] [flags]
+  ```
+
+  **Flags:**
+  - `--password-file, -f` - File containing password
+  - `--access-token-file, -t` - File containing access token
+  - `--mfa-token, -m` - MFA token
+
+  **Example:**
+  ```bash
+  mmctl auth renew production --password-file password.txt
+  ```
+</Accordion>
+
+<Accordion title="mmctl auth delete">
+  Delete stored credentials.
+
+  **Syntax:**
+  ```bash
+  mmctl auth delete [server-name]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl auth delete staging
+  ```
+</Accordion>
+
+<Accordion title="mmctl auth clean">
+  Remove all stored credentials.
+
+  **Syntax:**
+  ```bash
+  mmctl auth clean
+  ```
+</Accordion>
+
+## User Commands
+
+<Accordion title="mmctl user create">
+  Create a new user.
+
+  **Syntax:**
+  ```bash
+  mmctl user create [flags]
+  ```
+
+  **Flags:**
+  - `--email` (required) - Email address
+  - `--username` (required) - Username
+  - `--password` (required) - Password
+  - `--firstname` - First name
+  - `--lastname` - Last name
+  - `--nickname` - Nickname
+  - `--locale` - Locale (e.g., en, fr)
+  - `--system-admin` - Create as system administrator
+  - `--guest` - Create as guest user
+  - `--email-verified` - Mark email as verified
+  - `--disable-welcome-email` - Don't send welcome email
+
+  **Examples:**
+  ```bash
+  # Basic user
+  mmctl user create --email user@example.com --username john --password Pass123!
+
+  # User with additional details
+  mmctl user create \
+    --email user@example.com \
+    --username john \
+    --password Pass123! \
+    --firstname John \
+    --lastname Doe \
+    --nickname JD
+
+  # System administrator
+  mmctl user create \
+    --email admin@example.com \
+    --username admin \
+    --password AdminPass123! \
+    --system-admin
+
+  # Guest user
+  mmctl user create \
+    --email guest@example.com \
+    --username guest1 \
+    --password GuestPass123! \
+    --guest
+  ```
+</Accordion>
+
+<Accordion title="mmctl user list">
+  List all users.
+
+  **Syntax:**
+  ```bash
+  mmctl user list [flags]
+  ```
+
+  **Flags:**
+  - `--page` - Page number (default: 0)
+  - `--per-page` - Users per page (default: 200)
+  - `--all` - Fetch all users
+  - `--team` - Filter by team name or ID
+  - `--inactive` - Show only inactive users
+  - `--role` - Filter by role
+
+  **Examples:**
+  ```bash
+  # List all users
+  mmctl user list --all
+
+  # List users in a specific team
+  mmctl user list --team engineering
+
+  # List inactive users
+  mmctl user list --inactive
+
+  # Paginated results
+  mmctl user list --page 0 --per-page 50
+  ```
+</Accordion>
+
+<Accordion title="mmctl user search">
+  Search for users.
+
+  **Syntax:**
+  ```bash
+  mmctl user search [users...]
+  ```
+
+  **Examples:**
+  ```bash
+  # Search by email
+  mmctl user search user@example.com
+
+  # Search multiple users
+  mmctl user search user1@example.com user2@example.com
+
+  # Search by username
+  mmctl user search john.doe
+  ```
+</Accordion>
+
+<Accordion title="mmctl user activate">
+  Activate deactivated users.
+
+  **Syntax:**
+  ```bash
+  mmctl user activate [emails, usernames, userIds...]
+  ```
+
+  **Examples:**
+  ```bash
+  # Activate by email
+  mmctl user activate user@example.com
+
+  # Activate by username
+  mmctl user activate john.doe
+
+  # Activate multiple users
+  mmctl user activate user1@example.com user2@example.com
+  ```
+</Accordion>
+
+<Accordion title="mmctl user deactivate">
+  Deactivate users.
+
+  **Syntax:**
+  ```bash
+  mmctl user deactivate [emails, usernames, userIds...]
+  ```
+
+  **Examples:**
+  ```bash
+  mmctl user deactivate user@example.com
+  mmctl user deactivate john.doe
+  ```
+</Accordion>
+
+<Accordion title="mmctl user change-password">
+  Change a user's password.
+
+  **Syntax:**
+  ```bash
+  mmctl user change-password <user> [flags]
+  ```
+
+  **Flags:**
+  - `--current, -c` - Current password (for own password)
+  - `--password, -p` - New password
+  - `--hashed` - Password is already hashed
+
+  **Examples:**
+  ```bash
+  # Change another user's password (admin)
+  mmctl user change-password john.doe --password NewPass123!
+
+  # Change your own password
+  mmctl user change-password myusername \
+    --current OldPass123! \
+    --password NewPass123!
+
+  # Interactive mode
+  mmctl user change-password john.doe
+  ```
+</Accordion>
+
+<Accordion title="mmctl user resetmfa">
+  Reset multi-factor authentication for users.
+
+  **Syntax:**
+  ```bash
+  mmctl user resetmfa [users...]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl user resetmfa user@example.com
+  ```
+</Accordion>
+
+<Accordion title="mmctl user reset-password">
+  Send password reset email.
+
+  **Syntax:**
+  ```bash
+  mmctl user reset-password [users...]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl user reset-password user@example.com
+  ```
+</Accordion>
+
+<Accordion title="mmctl user edit username/email/authdata">
+  Edit user properties.
+
+  **Syntax:**
+  ```bash
+  mmctl user edit username [user] [new-username]
+  mmctl user edit email [user] [new-email]
+  mmctl user edit authdata [user] [new-authdata]
+  ```
+
+  **Examples:**
+  ```bash
+  # Change username
+  mmctl user edit username user@example.com john.smith
+
+  # Change email
+  mmctl user edit email olduser@example.com newuser@example.com
+
+  # Update auth data
+  mmctl user edit authdata user@example.com new_ldap_id
+  ```
+</Accordion>
+
+<Accordion title="mmctl user delete">
+  Permanently delete users.
+
+  **Syntax:**
+  ```bash
+  mmctl user delete [users...] [flags]
+  ```
+
+  **Flags:**
+  - `--confirm` - Skip confirmation prompt
+
+  **Example:**
+  ```bash
+  mmctl user delete user@example.com --confirm
+  ```
+</Accordion>
+
+<Accordion title="mmctl user invite">
+  Send invitation email to join a team.
+
+  **Syntax:**
+  ```bash
+  mmctl user invite [email] [teams...]
+  ```
+
+  **Examples:**
+  ```bash
+  # Invite to one team
+  mmctl user invite user@example.com engineering
+
+  # Invite to multiple teams
+  mmctl user invite user@example.com engineering marketing
+  ```
+</Accordion>
+
+<Accordion title="mmctl user convert">
+  Convert users to bots or bots to users.
+
+  **Syntax:**
+  ```bash
+  mmctl user convert [users...] [flags]
+  ```
+
+  **Flags:**
+  - `--bot` - Convert users to bots
+  - `--user` - Convert bot to user
+  - `--password` - Password for new user account
+  - `--email` - Email for new user account
+  - `--username` - Username for new user account
+
+  **Examples:**
+  ```bash
+  # Convert user to bot
+  mmctl user convert user@example.com --bot
+
+  # Convert bot to user
+  mmctl user convert botusername \
+    --user \
+    --email newuser@example.com \
+    --password Pass123!
+  ```
+</Accordion>
+
+<Accordion title="mmctl user promote/demote">
+  Promote guests to users or demote users to guests.
+
+  **Syntax:**
+  ```bash
+  mmctl user promote [guests...]
+  mmctl user demote [users...]
+  ```
+
+  **Examples:**
+  ```bash
+  # Promote guest to regular user
+  mmctl user promote guest1@example.com
+
+  # Demote user to guest
+  mmctl user demote user@example.com
+  ```
+</Accordion>
+
+## Team Commands
+
+<Accordion title="mmctl team create">
+  Create a team.
+
+  **Syntax:**
+  ```bash
+  mmctl team create [flags]
+  ```
+
+  **Flags:**
+  - `--name` (required) - Team name
+  - `--display-name` (required) - Display name
+  - `--private` - Create private team
+  - `--email` - Admin email
+
+  **Examples:**
+  ```bash
+  # Public team
+  mmctl team create --name engineering --display-name "Engineering Team"
+
+  # Private team
+  mmctl team create \
+    --name executive \
+    --display-name "Executive Team" \
+    --private
+
+  # Team with admin email
+  mmctl team create \
+    --name sales \
+    --display-name "Sales Team" \
+    --email admin@example.com
+  ```
+</Accordion>
+
+<Accordion title="mmctl team list">
+  List all teams.
+
+  **Syntax:**
+  ```bash
+  mmctl team list
+  ```
+
+  **Example:**
+  ```bash
+  mmctl team list
+  # Output:
+  # engineering
+  # marketing
+  # sales (archived)
+  ```
+</Accordion>
+
+<Accordion title="mmctl team search">
+  Search for teams.
+
+  **Syntax:**
+  ```bash
+  mmctl team search [teams...]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl team search engineering
+  mmctl team search eng market
+  ```
+</Accordion>
+
+<Accordion title="mmctl team archive">
+  Archive teams.
+
+  **Syntax:**
+  ```bash
+  mmctl team archive [teams...] [flags]
+  ```
+
+  **Flags:**
+  - `--confirm` - Skip confirmation
+
+  **Example:**
+  ```bash
+  mmctl team archive oldteam --confirm
+  ```
+</Accordion>
+
+<Accordion title="mmctl team restore">
+  Restore archived teams.
+
+  **Syntax:**
+  ```bash
+  mmctl team restore [teams...]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl team restore oldteam
+  ```
+</Accordion>
+
+<Accordion title="mmctl team delete">
+  Permanently delete teams.
+
+  **Syntax:**
+  ```bash
+  mmctl team delete [teams...] [flags]
+  ```
+
+  **Flags:**
+  - `--confirm` - Skip confirmation
+
+  **Example:**
+  ```bash
+  mmctl team delete oldteam --confirm
+  ```
+</Accordion>
+
+<Accordion title="mmctl team rename">
+  Rename a team.
+
+  **Syntax:**
+  ```bash
+  mmctl team rename [team] --display-name [new-name]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl team rename engineering --display-name "Engineering & DevOps"
+  ```
+</Accordion>
+
+<Accordion title="mmctl team modify">
+  Modify team privacy.
+
+  **Syntax:**
+  ```bash
+  mmctl team modify [teams...] [flags]
+  ```
+
+  **Flags:**
+  - `--private` - Make team private
+  - `--public` - Make team public
+
+  **Examples:**
+  ```bash
+  # Make team private
+  mmctl team modify engineering --private
+
+  # Make team public
+  mmctl team modify oldprivate --public
+  ```
+</Accordion>
+
+## Channel Commands
+
+<Accordion title="mmctl channel create">
+  Create a channel.
+
+  **Syntax:**
+  ```bash
+  mmctl channel create [flags]
+  ```
+
+  **Flags:**
+  - `--team` (required) - Team name or ID
+  - `--name` (required) - Channel name
+  - `--display-name` (required) - Display name
+  - `--private` - Create private channel
+  - `--header` - Channel header
+  - `--purpose` - Channel purpose
+
+  **Examples:**
+  ```bash
+  # Public channel
+  mmctl channel create \
+    --team engineering \
+    --name general \
+    --display-name "General"
+
+  # Private channel with purpose
+  mmctl channel create \
+    --team engineering \
+    --name security \
+    --display-name "Security Discussions" \
+    --private \
+    --purpose "Discuss security topics"
+  ```
+</Accordion>
+
+<Accordion title="mmctl channel list">
+  List channels for teams.
+
+  **Syntax:**
+  ```bash
+  mmctl channel list [teams...]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl channel list engineering
+  mmctl channel list engineering marketing
+  ```
+</Accordion>
+
+<Accordion title="mmctl channel search">
+  Search for a channel.
+
+  **Syntax:**
+  ```bash
+  mmctl channel search [channel] [flags]
+  ```
+
+  **Flags:**
+  - `--team` - Team name or ID
+
+  **Examples:**
+  ```bash
+  # Search with team context
+  mmctl channel search general --team engineering
+
+  # Search across all teams
+  mmctl channel search announcements
+  ```
+</Accordion>
+
+<Accordion title="mmctl channel archive">
+  Archive channels.
+
+  **Syntax:**
+  ```bash
+  mmctl channel archive [channels...]
+  ```
+
+  **Examples:**
+  ```bash
+  # Archive by team:channel
+  mmctl channel archive engineering:old-project
+
+  # Archive by channel ID
+  mmctl channel archive channelid123
+  ```
+</Accordion>
+
+<Accordion title="mmctl channel unarchive">
+  Unarchive channels.
+
+  **Syntax:**
+  ```bash
+  mmctl channel unarchive [channels...]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl channel unarchive engineering:old-project
+  ```
+</Accordion>
+
+<Accordion title="mmctl channel delete">
+  Permanently delete channels.
+
+  **Syntax:**
+  ```bash
+  mmctl channel delete [channels...] [flags]
+  ```
+
+  **Flags:**
+  - `--confirm` - Skip confirmation
+
+  **Example:**
+  ```bash
+  mmctl channel delete engineering:oldchannel --confirm
+  ```
+</Accordion>
+
+<Accordion title="mmctl channel rename">
+  Rename a channel.
+
+  **Syntax:**
+  ```bash
+  mmctl channel rename [channel] [flags]
+  ```
+
+  **Flags:**
+  - `--name` - New channel name
+  - `--display-name` - New display name
+
+  **Examples:**
+  ```bash
+  # Rename both name and display name
+  mmctl channel rename engineering:old-name \
+    --name new-name \
+    --display-name "New Display Name"
+
+  # Change only display name
+  mmctl channel rename engineering:general --display-name "General Chat"
+  ```
+</Accordion>
+
+<Accordion title="mmctl channel modify">
+  Modify channel privacy.
+
+  **Syntax:**
+  ```bash
+  mmctl channel modify [channel] [flags]
+  ```
+
+  **Flags:**
+  - `--private` - Convert to private
+  - `--public` - Convert to public
+
+  **Examples:**
+  ```bash
+  # Make channel private
+  mmctl channel modify engineering:general --private
+
+  # Make channel public
+  mmctl channel modify engineering:private-channel --public
+  ```
+</Accordion>
+
+<Accordion title="mmctl channel move">
+  Move channels to another team.
+
+  **Syntax:**
+  ```bash
+  mmctl channel move [destination-team] [channels...] [flags]
+  ```
+
+  **Flags:**
+  - `--force` - Remove users not in target team
+
+  **Example:**
+  ```bash
+  mmctl channel move newteam oldteam:channel1 oldteam:channel2
+  ```
+</Accordion>
+
+## Configuration Commands
+
+<Accordion title="mmctl config get">
+  Get configuration value.
+
+  **Syntax:**
+  ```bash
+  mmctl config get [setting]
+  ```
+
+  **Examples:**
+  ```bash
+  # Get single setting
+  mmctl config get SqlSettings.DriverName
+
+  # Get section
+  mmctl config get SqlSettings
+  ```
+</Accordion>
+
+<Accordion title="mmctl config set">
+  Set configuration value.
+
+  **Syntax:**
+  ```bash
+  mmctl config set [setting] [values...]
+  ```
+
+  **Examples:**
+  ```bash
+  # Set single value
+  mmctl config set SqlSettings.DriverName postgres
+
+  # Set array values
+  mmctl config set SqlSettings.DataSourceReplicas "replica1" "replica2"
+  ```
+</Accordion>
+
+<Accordion title="mmctl config show">
+  Display entire configuration.
+
+  **Syntax:**
+  ```bash
+  mmctl config show
+  ```
+
+  **Example:**
+  ```bash
+  mmctl config show > config-backup.json
+  ```
+</Accordion>
+
+<Accordion title="mmctl config patch">
+  Patch configuration from file.
+
+  **Syntax:**
+  ```bash
+  mmctl config patch <config-file>
+  ```
+
+  **Example:**
+  ```bash
+  mmctl config patch /path/to/config.json
+  ```
+</Accordion>
+
+<Accordion title="mmctl config edit">
+  Edit configuration interactively.
+
+  **Syntax:**
+  ```bash
+  mmctl config edit
+  ```
+
+  **Note:** Opens configuration in $EDITOR (defaults to vi).
+</Accordion>
+
+<Accordion title="mmctl config reset">
+  Reset configuration to defaults.
+
+  **Syntax:**
+  ```bash
+  mmctl config reset [settings...] [flags]
+  ```
+
+  **Flags:**
+  - `--confirm` - Skip confirmation
+
+  **Examples:**
+  ```bash
+  # Reset single setting
+  mmctl config reset SqlSettings.DriverName
+
+  # Reset entire section
+  mmctl config reset LogSettings
+  ```
+</Accordion>
+
+<Accordion title="mmctl config reload">
+  Reload server configuration.
+
+  **Syntax:**
+  ```bash
+  mmctl config reload
+  ```
+</Accordion>
+
+<Accordion title="mmctl config export">
+  Export configuration.
+
+  **Syntax:**
+  ```bash
+  mmctl config export [flags]
+  ```
+
+  **Flags:**
+  - `--remove-masked` - Remove masked values (default: true)
+  - `--remove-defaults` - Remove default values
+
+  **Example:**
+  ```bash
+  mmctl config export --remove-defaults > minimal-config.json
+  ```
+</Accordion>
+
+## Plugin Commands
+
+<Accordion title="mmctl plugin add">
+  Upload and install plugins.
+
+  **Syntax:**
+  ```bash
+  mmctl plugin add [plugins...] [flags]
+  ```
+
+  **Flags:**
+  - `--force, -f` - Overwrite existing plugin
+
+  **Examples:**
+  ```bash
+  # Install single plugin
+  mmctl plugin add plugin.tar.gz
+
+  # Install multiple plugins
+  mmctl plugin add plugin1.tar.gz plugin2.tar.gz
+
+  # Force install (overwrite)
+  mmctl plugin add plugin.tar.gz --force
+  ```
+</Accordion>
+
+<Accordion title="mmctl plugin install-url">
+  Install plugin from URL.
+
+  **Syntax:**
+  ```bash
+  mmctl plugin install-url <url> [flags]
+  ```
+
+  **Flags:**
+  - `--force, -f` - Overwrite existing plugin
+
+  **Examples:**
+  ```bash
+  # Install from URL
+  mmctl plugin install-url https://example.com/plugin.tar.gz
+
+  # Install multiple
+  mmctl plugin install-url \
+    https://example.com/plugin1.tar.gz \
+    https://example.com/plugin2.tar.gz
+  ```
+</Accordion>
+
+<Accordion title="mmctl plugin list">
+  List installed plugins.
+
+  **Syntax:**
+  ```bash
+  mmctl plugin list
+  ```
+
+  **Example:**
+  ```bash
+  mmctl plugin list
+  # Output:
+  # Listing enabled plugins
+  # com.mattermost.plugin-example: Example Plugin, Version: 1.0.0
+  #
+  # Listing disabled plugins
+  # com.mattermost.old-plugin: Old Plugin, Version: 0.9.0
+  ```
+</Accordion>
+
+<Accordion title="mmctl plugin enable">
+  Enable plugins.
+
+  **Syntax:**
+  ```bash
+  mmctl plugin enable [plugins...]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl plugin enable com.mattermost.plugin-example
+  ```
+</Accordion>
+
+<Accordion title="mmctl plugin disable">
+  Disable plugins.
+
+  **Syntax:**
+  ```bash
+  mmctl plugin disable [plugins...]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl plugin disable com.mattermost.plugin-example
+  ```
+</Accordion>
+
+<Accordion title="mmctl plugin delete">
+  Delete plugins.
+
+  **Syntax:**
+  ```bash
+  mmctl plugin delete [plugins...]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl plugin delete com.mattermost.old-plugin
+  ```
+</Accordion>
+
+## System Commands
+
+<Accordion title="mmctl system version">
+  Display server version.
+
+  **Syntax:**
+  ```bash
+  mmctl system version
+  ```
+
+  **Example:**
+  ```bash
+  mmctl system version
+  # Output: Server version 9.0.1
+  ```
+</Accordion>
+
+<Accordion title="mmctl system status">
+  Check server health status.
+
+  **Syntax:**
+  ```bash
+  mmctl system status
+  ```
+
+  **Example:**
+  ```bash
+  mmctl system status
+  # Output:
+  # Server status: OK
+  # Database Status: OK
+  # Filestore Status: OK
+  ```
+</Accordion>
+
+<Accordion title="mmctl system getbusy">
+  Get current busy state.
+
+  **Syntax:**
+  ```bash
+  mmctl system getbusy
+  ```
+
+  **Example:**
+  ```bash
+  mmctl system getbusy
+  # Output: busy:true expires:1234567890
+  ```
+</Accordion>
+
+<Accordion title="mmctl system setbusy">
+  Set server to busy state.
+
+  **Syntax:**
+  ```bash
+  mmctl system setbusy --seconds [duration]
+  ```
+
+  **Example:**
+  ```bash
+  # Set busy for 1 hour
+  mmctl system setbusy --seconds 3600
+  ```
+</Accordion>
+
+<Accordion title="mmctl system clearbusy">
+  Clear busy state.
+
+  **Syntax:**
+  ```bash
+  mmctl system clearbusy
+  ```
+</Accordion>
+
+<Accordion title="mmctl system supportpacket">
+  Download support packet.
+
+  **Syntax:**
+  ```bash
+  mmctl system supportpacket [flags]
+  ```
+
+  **Flags:**
+  - `--output-file, -o` - Output filename
+
+  **Example:**
+  ```bash
+  mmctl system supportpacket --output-file support.zip
+  ```
+</Accordion>
+
+## License Commands
+
+<Accordion title="mmctl license upload">
+  Upload license file.
+
+  **Syntax:**
+  ```bash
+  mmctl license upload [license-file]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl license upload /path/to/license.mattermost-license
+  ```
+</Accordion>
+
+<Accordion title="mmctl license upload-string">
+  Upload license from string.
+
+  **Syntax:**
+  ```bash
+  mmctl license upload-string [license-string]
+  ```
+
+  **Example:**
+  ```bash
+  mmctl license upload-string "license-content-here"
+  ```
+</Accordion>
+
+<Accordion title="mmctl license get">
+  Get current license information.
+
+  **Syntax:**
+  ```bash
+  mmctl license get
+  ```
+
+  **Example:**
+  ```bash
+  mmctl license get
+  # Output:
+  # License ID: abc123
+  # Users: 500
+  # Expires At: 2024-12-31T23:59:59Z
+  ```
+</Accordion>
+
+<Accordion title="mmctl license remove">
+  Remove current license.
+
+  **Syntax:**
+  ```bash
+  mmctl license remove
+  ```
+</Accordion>
+
+## Post Commands
+
+<Accordion title="mmctl post create">
+  Create a post in a channel.
+
+  **Syntax:**
+  ```bash
+  mmctl post create [channel] [flags]
+  ```
+
+  **Flags:**
+  - `--message, -m` (required) - Post message
+  - `--reply-to, -r` - Post ID to reply to
+
+  **Examples:**
+  ```bash
+  # Create post
+  mmctl post create engineering:general --message "Hello team!"
+
+  # Reply to post
+  mmctl post create engineering:general \
+    --message "Great idea!" \
+    --reply-to postid123
+  ```
+</Accordion>
+
+<Accordion title="mmctl post list">
+  List posts in a channel.
+
+  **Syntax:**
+  ```bash
+  mmctl post list [channel] [flags]
+  ```
+
+  **Flags:**
+  - `--number, -n` - Number of posts (default: 20)
+  - `--show-ids, -i` - Show post IDs
+  - `--follow, -f` - Follow channel for new posts
+  - `--since, -s` - Show posts since time (ISO 8601)
+
+  **Examples:**
+  ```bash
+  # List recent posts
+  mmctl post list engineering:general
+
+  # List 50 posts with IDs
+  mmctl post list engineering:general --number 50 --show-ids
+
+  # Follow channel for new posts
+  mmctl post list engineering:general --follow
+
+  # Posts since specific time
+  mmctl post list engineering:general --since 2024-01-01T00:00:00Z
+  ```
+</Accordion>
+
+<Accordion title="mmctl post delete">
+  Delete posts.
+
+  **Syntax:**
+  ```bash
+  mmctl post delete [posts...] [flags]
+  ```
+
+  **Flags:**
+  - `--confirm` - Skip confirmation
+  - `--permanent` - Permanently delete from database
+
+  **Examples:**
+  ```bash
+  # Soft delete (mark as deleted)
+  mmctl post delete postid123
+
+  # Permanent delete
+  mmctl post delete postid123 --permanent --confirm
+
+  # Delete multiple posts
+  mmctl post delete post1 post2 post3 --permanent
+  ```
+</Accordion>
+
+## Permissions Commands
+
+<Note>
+  Permissions commands require Enterprise Edition.
+</Note>
+
+<Accordion title="mmctl permissions add">
+  Add permissions to a role.
+
+  **Syntax:**
+  ```bash
+  mmctl permissions add <role> <permission...>
+  ```
+
+  **Examples:**
+  ```bash
+  # Add single permission
+  mmctl permissions add system_user list_open_teams
+
+  # Add multiple permissions
+  mmctl permissions add system_manager \
+    sysconsole_read_user_management_channels \
+    sysconsole_write_user_management_channels
+  ```
+</Accordion>
+
+<Accordion title="mmctl permissions remove">
+  Remove permissions from a role.
+
+  **Syntax:**
+  ```bash
+  mmctl permissions remove <role> <permission...>
+  ```
+
+  **Example:**
+  ```bash
+  mmctl permissions remove system_user list_open_teams
+  ```
+</Accordion>
+
+<Accordion title="mmctl permissions reset">
+  Reset role to default permissions.
+
+  **Syntax:**
+  ```bash
+  mmctl permissions reset <role>
+  ```
+
+  **Example:**
+  ```bash
+  mmctl permissions reset system_read_only_admin
+  ```
+</Accordion>
+
+## Version Command
+
+<Accordion title="mmctl version">
+  Display mmctl version.
+
+  **Syntax:**
+  ```bash
+  mmctl version
+  ```
+
+  **Example:**
+  ```bash
+  mmctl version
+  # Output: mmctl v9.0.1 -- commit abc123
+  ```
+</Accordion>
+
+## Completion Command
+
+<Accordion title="mmctl completion">
+  Generate shell completion scripts.
+
+  **Syntax:**
+  ```bash
+  mmctl completion [bash|zsh|fish|powershell]
+  ```
+
+  **Examples:**
+  ```bash
+  # Bash
+  mmctl completion bash > /etc/bash_completion.d/mmctl
+
+  # Zsh
+  mmctl completion zsh > "${fpath[1]}/_mmctl"
+
+  # Fish
+  mmctl completion fish > ~/.config/fish/completions/mmctl.fish
+
+  # PowerShell
+  mmctl completion powershell > mmctl.ps1
+  ```
+</Accordion>
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="book" href="/cli/overview">
+    Learn about mmctl capabilities
+  </Card>
+  <Card title="Installation" icon="download" href="/cli/installation">
+    Install mmctl on your system
+  </Card>
+  <Card title="Authentication" icon="key" href="/cli/authentication">
+    Configure authentication
+  </Card>
+  <Card title="Mattermost API" icon="code" href="https://api.mattermost.com">
+    Explore the REST API
+  </Card>
+</CardGroup>

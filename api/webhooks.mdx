@@ -1,0 +1,640 @@
+---
+title: 'Webhooks API'
+description: 'Create and manage incoming and outgoing webhooks for integrations'
+---
+
+## Overview
+
+Webhooks enable external integrations to interact with Mattermost. There are two types:
+
+- **Incoming Webhooks** - Receive data from external services and post to Mattermost
+- **Outgoing Webhooks** - Send data to external services when specific triggers occur
+
+## Incoming Webhooks
+
+Incoming webhooks allow external applications to post messages to Mattermost channels.
+
+### Create Incoming Webhook
+
+```http
+POST /api/v4/hooks/incoming
+```
+
+#### Request Body
+
+<ParamField body="channel_id" type="string" required>
+  Channel ID where webhook will post messages
+</ParamField>
+
+<ParamField body="display_name" type="string">
+  Display name for the webhook
+</ParamField>
+
+<ParamField body="description" type="string">
+  Description of the webhook's purpose
+</ParamField>
+
+<ParamField body="username" type="string">
+  Username the webhook will post as
+</ParamField>
+
+<ParamField body="icon_url" type="string">
+  URL to profile picture for webhook posts
+</ParamField>
+
+<ParamField body="channel_locked" type="boolean">
+  Lock webhook to the specified channel
+</ParamField>
+
+<ParamField body="user_id" type="string">
+  Owner user ID (required for local mode)
+</ParamField>
+
+#### Example Request
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:8065/api/v4/hooks/incoming \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "channel_id": "channel123abc",
+    "display_name": "GitHub Integration",
+    "description": "Posts GitHub notifications",
+    "username": "github-bot",
+    "icon_url": "https://github.com/favicon.ico"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8065/api/v4/hooks/incoming', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer your-token',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    channel_id: 'channel123abc',
+    display_name: 'GitHub Integration',
+    description: 'Posts GitHub notifications',
+    username: 'github-bot'
+  })
+});
+```
+</CodeGroup>
+
+#### Response
+
+<ResponseField name="id" type="string">
+  Unique webhook identifier
+</ResponseField>
+
+<ResponseField name="create_at" type="integer">
+  Creation timestamp in milliseconds
+</ResponseField>
+
+<ResponseField name="channel_id" type="string">
+  Target channel ID
+</ResponseField>
+
+<ResponseField name="display_name" type="string">
+  Webhook display name
+</ResponseField>
+
+```json Response Example
+{
+  "id": "hook789xyz",
+  "create_at": 1507840900004,
+  "update_at": 1507840900004,
+  "delete_at": 0,
+  "user_id": "user456def",
+  "channel_id": "channel123abc",
+  "team_id": "team123abc",
+  "display_name": "GitHub Integration",
+  "description": "Posts GitHub notifications",
+  "username": "github-bot",
+  "icon_url": "https://github.com/favicon.ico",
+  "channel_locked": false
+}
+```
+
+### Using an Incoming Webhook
+
+Once created, post to the webhook URL:
+
+```
+POST http://localhost:8065/hooks/{webhook_id}
+```
+
+#### Webhook Payload
+
+<ParamField body="text" type="string" required>
+  Message text (supports Markdown)
+</ParamField>
+
+<ParamField body="channel" type="string">
+  Override default channel (if not locked)
+</ParamField>
+
+<ParamField body="username" type="string">
+  Override default username
+</ParamField>
+
+<ParamField body="icon_url" type="string">
+  Override default icon URL
+</ParamField>
+
+<ParamField body="icon_emoji" type="string">
+  Use emoji as icon (e.g., ":smile:")
+</ParamField>
+
+<ParamField body="attachments" type="array">
+  Array of message attachments (Slack-compatible format)
+</ParamField>
+
+<ParamField body="type" type="string">
+  Message type for custom rendering
+</ParamField>
+
+<ParamField body="props" type="object">
+  Custom properties for the post
+</ParamField>
+
+#### Example: Simple Message
+
+```bash
+curl -X POST http://localhost:8065/hooks/{webhook_id} \
+  -H 'Content-Type: application/json' \
+  -d '{"text": "Hello from webhook!"}'
+```
+
+#### Example: Rich Message with Attachments
+
+```json
+{
+  "text": "New pull request opened",
+  "username": "GitHub Bot",
+  "icon_emoji": ":octopus:",
+  "attachments": [
+    {
+      "fallback": "PR #123: Add new feature",
+      "color": "#36a64f",
+      "pretext": "New pull request from @john",
+      "author_name": "John Doe",
+      "author_link": "https://github.com/johndoe",
+      "author_icon": "https://github.com/johndoe.png",
+      "title": "PR #123: Add new feature",
+      "title_link": "https://github.com/repo/pull/123",
+      "text": "This PR adds a new feature to the application",
+      "fields": [
+        {
+          "title": "Priority",
+          "value": "High",
+          "short": true
+        },
+        {
+          "title": "Status",
+          "value": "In Review",
+          "short": true
+        }
+      ],
+      "footer": "GitHub",
+      "footer_icon": "https://github.com/favicon.ico",
+      "ts": 1507840900
+    }
+  ]
+}
+```
+
+### Get Incoming Webhook
+
+```http
+GET /api/v4/hooks/incoming/{hook_id}
+```
+
+#### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/hooks/incoming/{hook_id}
+```
+
+### List Incoming Webhooks
+
+```http
+GET /api/v4/hooks/incoming
+```
+
+#### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="60">
+  Webhooks per page
+</ParamField>
+
+<ParamField query="team_id" type="string">
+  Filter by team ID
+</ParamField>
+
+<ParamField query="include_total_count" type="boolean" default="false">
+  Include total count in response
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -H 'Authorization: Bearer your-token' \
+  'http://localhost:8065/api/v4/hooks/incoming?page=0&per_page=50&team_id=team123abc'
+```
+
+### Update Incoming Webhook
+
+```http
+PUT /api/v4/hooks/incoming/{hook_id}
+```
+
+#### Request Body
+
+<ParamField body="id" type="string" required>
+  Webhook ID (must match path parameter)
+</ParamField>
+
+<ParamField body="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+<ParamField body="display_name" type="string" required>
+  Display name
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Description
+</ParamField>
+
+<ParamField body="username" type="string">
+  Username
+</ParamField>
+
+<ParamField body="icon_url" type="string">
+  Icon URL
+</ParamField>
+
+<ParamField body="channel_locked" type="boolean">
+  Lock to channel
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X PUT http://localhost:8065/api/v4/hooks/incoming/{hook_id} \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "id": "hook789xyz",
+    "channel_id": "channel123abc",
+    "display_name": "GitHub Integration - Updated",
+    "description": "Updated description"
+  }'
+```
+
+### Delete Incoming Webhook
+
+```http
+DELETE /api/v4/hooks/incoming/{hook_id}
+```
+
+#### Example Request
+
+```bash
+curl -X DELETE \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/hooks/incoming/{hook_id}
+```
+
+## Outgoing Webhooks
+
+Outgoing webhooks send HTTP POST requests to external services when messages are posted in specific channels or contain trigger words.
+
+### Create Outgoing Webhook
+
+```http
+POST /api/v4/hooks/outgoing
+```
+
+#### Request Body
+
+<ParamField body="team_id" type="string" required>
+  Team ID to watch
+</ParamField>
+
+<ParamField body="display_name" type="string" required>
+  Display name for the webhook
+</ParamField>
+
+<ParamField body="trigger_words" type="array" required>
+  Words that trigger the webhook
+</ParamField>
+
+<ParamField body="callback_urls" type="array" required>
+  URLs to POST payloads to
+</ParamField>
+
+<ParamField body="channel_id" type="string">
+  Specific channel to watch (public channels only)
+</ParamField>
+
+<ParamField body="description" type="string">
+  Webhook description
+</ParamField>
+
+<ParamField body="trigger_when" type="integer">
+  When to trigger: `0` = trigger word anywhere, `1` = message starts with trigger word
+</ParamField>
+
+<ParamField body="content_type" type="string" default="application/x-www-form-urlencoded">
+  Payload format: `application/json` or `application/x-www-form-urlencoded`
+</ParamField>
+
+<ParamField body="creator_id" type="string">
+  Owner user ID (required for local mode)
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST http://localhost:8065/api/v4/hooks/outgoing \
+  -H 'Authorization: Bearer your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "team_id": "team123abc",
+    "display_name": "External Bot",
+    "trigger_words": ["!bot", "@bot"],
+    "callback_urls": ["https://api.example.com/webhook"],
+    "channel_id": "channel123abc",
+    "trigger_when": 1,
+    "content_type": "application/json"
+  }'
+```
+
+#### Response
+
+```json
+{
+  "id": "outhook456xyz",
+  "token": "webhook-token-abc123",
+  "create_at": 1507840900004,
+  "update_at": 1507840900004,
+  "delete_at": 0,
+  "creator_id": "user456def",
+  "team_id": "team123abc",
+  "channel_id": "channel123abc",
+  "display_name": "External Bot",
+  "description": "",
+  "trigger_words": ["!bot", "@bot"],
+  "trigger_when": 1,
+  "callback_urls": ["https://api.example.com/webhook"],
+  "content_type": "application/json"
+}
+```
+
+### Outgoing Webhook Payload
+
+When triggered, Mattermost sends:
+
+```json
+{
+  "token": "webhook-token-abc123",
+  "team_id": "team123abc",
+  "team_domain": "engineering",
+  "channel_id": "channel123abc",
+  "channel_name": "dev-team",
+  "timestamp": 1507840900004,
+  "user_id": "user456def",
+  "user_name": "john.doe",
+  "post_id": "post789xyz",
+  "text": "!bot help",
+  "trigger_word": "!bot",
+  "file_ids": "file1,file2"
+}
+```
+
+### Outgoing Webhook Response
+
+Your service can respond with a message to post:
+
+```json
+{
+  "text": "Bot response: Here's the help text",
+  "username": "Bot",
+  "icon_url": "https://example.com/bot-icon.png",
+  "type": "custom_type",
+  "response_type": "in_channel"
+}
+```
+
+<ParamField name="response_type" type="string">
+  `"in_channel"` (default) or `"ephemeral"` (only visible to triggering user)
+</ParamField>
+
+### Get Outgoing Webhook
+
+```http
+GET /api/v4/hooks/outgoing/{hook_id}
+```
+
+### List Outgoing Webhooks
+
+```http
+GET /api/v4/hooks/outgoing
+```
+
+#### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="60">
+  Webhooks per page
+</ParamField>
+
+<ParamField query="team_id" type="string">
+  Filter by team ID
+</ParamField>
+
+<ParamField query="channel_id" type="string">
+  Filter by channel ID
+</ParamField>
+
+### Update Outgoing Webhook
+
+```http
+PUT /api/v4/hooks/outgoing/{hook_id}
+```
+
+### Delete Outgoing Webhook
+
+```http
+DELETE /api/v4/hooks/outgoing/{hook_id}
+```
+
+### Regenerate Outgoing Webhook Token
+
+```http
+POST /api/v4/hooks/outgoing/{hook_id}/regen_token
+```
+
+#### Example Request
+
+```bash
+curl -X POST \
+  -H 'Authorization: Bearer your-token' \
+  http://localhost:8065/api/v4/hooks/outgoing/{hook_id}/regen_token
+```
+
+## Webhook Message Formatting
+
+### Markdown Support
+
+Webhook messages support full Markdown:
+
+```json
+{
+  "text": "**Bold** *italic* `code` [link](https://example.com)"
+}
+```
+
+### Attachments
+
+Use Slack-compatible attachment format:
+
+```json
+{
+  "attachments": [
+    {
+      "fallback": "Fallback text",
+      "color": "#FF0000",
+      "pretext": "Text before attachment",
+      "text": "Main attachment text",
+      "title": "Attachment Title",
+      "title_link": "https://example.com",
+      "fields": [
+        {"title": "Field 1", "value": "Value 1", "short": true},
+        {"title": "Field 2", "value": "Value 2", "short": true}
+      ],
+      "image_url": "https://example.com/image.png",
+      "thumb_url": "https://example.com/thumb.png"
+    }
+  ]
+}
+```
+
+### Attachment Colors
+
+Colors can be:
+- Hex codes: `"#FF0000"`
+- Named colors: `"good"`, `"warning"`, `"danger"`
+
+## Permissions
+
+| Operation | Required Permission |
+|-----------|--------------------|
+| Create incoming webhook | `manage_webhooks` for the team |
+| Create incoming webhook (other user) | `manage_others_incoming_webhooks` |
+| Get/update/delete incoming webhook | `manage_webhooks` for team/channel |
+| Create outgoing webhook | `manage_webhooks` for the team |
+| Create outgoing webhook (other user) | `manage_others_outgoing_webhooks` |
+| Get/update/delete outgoing webhook | `manage_webhooks` for team/channel |
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `400` | Invalid parameters or malformed JSON |
+| `401` | Not authenticated |
+| `403` | Insufficient permissions or webhooks disabled |
+| `404` | Webhook not found |
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Validate Webhook Tokens">
+    Always validate the `token` field in outgoing webhook payloads to ensure requests are from Mattermost.
+  </Accordion>
+  
+  <Accordion title="Use HTTPS">
+    Always use HTTPS URLs for webhook callbacks to protect data in transit.
+  </Accordion>
+  
+  <Accordion title="Limit Webhook Scope">
+    Use channel-locked incoming webhooks when posting to a single channel.
+  </Accordion>
+  
+  <Accordion title="Monitor Webhook Usage">
+    Regularly review and remove unused webhooks to minimize security surface.
+  </Accordion>
+</AccordionGroup>
+
+## Example: GitHub Integration
+
+```javascript
+// GitHub webhook handler (Node.js/Express)
+app.post('/github-webhook', (req, res) => {
+  const { action, pull_request } = req.body;
+  
+  if (action === 'opened') {
+    // Post to Mattermost
+    const payload = {
+      text: `New PR: ${pull_request.title}`,
+      username: 'GitHub Bot',
+      icon_emoji: ':octopus:',
+      attachments: [{
+        color: '#6CC644',
+        title: `#${pull_request.number}: ${pull_request.title}`,
+        title_link: pull_request.html_url,
+        text: pull_request.body,
+        author_name: pull_request.user.login,
+        author_icon: pull_request.user.avatar_url
+      }]
+    };
+    
+    await fetch(mattermostWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  }
+  
+  res.sendStatus(200);
+});
+```
+
+## Troubleshooting
+
+### Webhook Not Triggering
+
+- Verify webhook is enabled in System Console
+- Check channel permissions
+- Ensure trigger words match exactly (case-sensitive)
+- Verify callback URLs are reachable
+
+### Messages Not Posting
+
+- Check webhook URL is correct
+- Verify JSON payload is valid
+- Ensure channel exists and webhook has access
+- Check server logs for errors
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Posts API" icon="message" href="/api/posts">
+    Learn about creating posts programmatically
+  </Card>
+  <Card title="Plugins API" icon="plug" href="/api/plugins">
+    Build more advanced integrations with plugins
+  </Card>
+</CardGroup>

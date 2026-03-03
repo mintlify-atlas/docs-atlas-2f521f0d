@@ -1,0 +1,291 @@
+---
+title: Installing mmctl
+description: Installation instructions for mmctl on different platforms
+---
+
+## Overview
+
+mmctl is available for Linux, macOS, and Windows. Choose the installation method that works best for your environment.
+
+## Prerequisites
+
+- A running Mattermost server (version 5.28 or later)
+- Network access to your Mattermost server (for remote mode)
+- Local server access (for local mode operations)
+
+## Installation Methods
+
+<Tabs>
+  <Tab title="Linux">
+    ### Using Package Manager
+
+    #### Debian/Ubuntu (APT)
+    ```bash
+    # Add the Mattermost repository
+    curl -o- https://deb.packages.mattermost.com/repo-setup.sh | sudo bash
+
+    # Install mmctl
+    sudo apt install mmctl
+    ```
+
+    #### RHEL/CentOS/Fedora (YUM/DNF)
+    ```bash
+    # Add the Mattermost repository
+    curl -o- https://rpm.packages.mattermost.com/repo-setup.sh | sudo bash
+
+    # Install mmctl
+    sudo yum install mmctl
+    # Or using dnf
+    sudo dnf install mmctl
+    ```
+
+    ### Direct Download
+
+    ```bash
+    # Download the latest release
+    curl -LO https://releases.mattermost.com/mmctl/latest/linux_amd64.tar.gz
+
+    # Extract the archive
+    tar -xzf linux_amd64.tar.gz
+
+    # Move to system PATH
+    sudo mv mmctl /usr/local/bin/
+
+    # Make executable
+    sudo chmod +x /usr/local/bin/mmctl
+    ```
+
+    ### Verify Installation
+    ```bash
+    mmctl version
+    ```
+  </Tab>
+
+  <Tab title="macOS">
+    ### Using Homebrew (Recommended)
+    ```bash
+    # Install via Homebrew
+    brew install mmctl
+    ```
+
+    ### Direct Download
+    ```bash
+    # Download for macOS (ARM64/M1/M2)
+    curl -LO https://releases.mattermost.com/mmctl/latest/darwin_arm64.tar.gz
+
+    # Or for Intel Macs
+    curl -LO https://releases.mattermost.com/mmctl/latest/darwin_amd64.tar.gz
+
+    # Extract the archive
+    tar -xzf darwin_*.tar.gz
+
+    # Move to PATH
+    sudo mv mmctl /usr/local/bin/
+
+    # Make executable
+    sudo chmod +x /usr/local/bin/mmctl
+    ```
+
+    ### Verify Installation
+    ```bash
+    mmctl version
+    ```
+  </Tab>
+
+  <Tab title="Windows">
+    ### Using Chocolatey
+    ```powershell
+    # Install via Chocolatey
+    choco install mmctl
+    ```
+
+    ### Direct Download
+
+    1. Download the Windows binary:
+       - [64-bit Windows](https://releases.mattermost.com/mmctl/latest/windows_amd64.zip)
+
+    2. Extract the ZIP file
+
+    3. Add the directory containing `mmctl.exe` to your PATH:
+       - Right-click "This PC" → Properties
+       - Click "Advanced system settings"
+       - Click "Environment Variables"
+       - Under "System Variables", find and edit "Path"
+       - Add the directory containing mmctl.exe
+
+    ### Verify Installation
+    ```powershell
+    mmctl version
+    ```
+  </Tab>
+
+  <Tab title="Docker">
+    ### Using Docker
+
+    You can run mmctl in a Docker container without installing it locally:
+
+    ```bash
+    # Run mmctl commands directly
+    docker run --rm mattermost/mmctl:latest version
+
+    # Create an alias for easier use
+    alias mmctl='docker run --rm -v ~/.mmctl:/root/.mmctl mattermost/mmctl:latest'
+
+    # Now use mmctl normally
+    mmctl version
+    ```
+
+    ### Mount Credentials
+    To persist authentication credentials:
+
+    ```bash
+    docker run --rm \
+      -v ~/.mmctl:/root/.mmctl \
+      mattermost/mmctl:latest \
+      auth login https://your-mattermost-server.com
+    ```
+  </Tab>
+
+  <Tab title="Build from Source">
+    ### Building from Source
+
+    Requirements:
+    - Go 1.19 or later
+    - Git
+
+    ```bash
+    # Clone the repository
+    git clone https://github.com/mattermost/mattermost.git
+    cd mattermost/server/cmd/mmctl
+
+    # Build mmctl
+    go build -o mmctl
+
+    # Move to PATH (optional)
+    sudo mv mmctl /usr/local/bin/
+
+    # Verify installation
+    mmctl version
+    ```
+  </Tab>
+</Tabs>
+
+## Version Compatibility
+
+mmctl versions should match your Mattermost server version for optimal compatibility:
+
+- mmctl v9.x works with Mattermost Server v9.x
+- mmctl v8.x works with Mattermost Server v8.x
+- mmctl v7.x works with Mattermost Server v7.x
+
+<Warning>
+  While mmctl may work with different server versions, some features may not be available if there's a version mismatch. Use `--strict` flag to enforce version matching.
+</Warning>
+
+## Upgrading mmctl
+
+<Tabs>
+  <Tab title="Linux (APT)">
+    ```bash
+    sudo apt update
+    sudo apt upgrade mmctl
+    ```
+  </Tab>
+
+  <Tab title="Linux (YUM/DNF)">
+    ```bash
+    sudo yum update mmctl
+    # Or using dnf
+    sudo dnf update mmctl
+    ```
+  </Tab>
+
+  <Tab title="macOS (Homebrew)">
+    ```bash
+    brew upgrade mmctl
+    ```
+  </Tab>
+
+  <Tab title="Windows (Chocolatey)">
+    ```powershell
+    choco upgrade mmctl
+    ```
+  </Tab>
+
+  <Tab title="Manual">
+    Download and replace the binary following the installation steps above for your platform.
+  </Tab>
+</Tabs>
+
+## Configuration Directory
+
+After installation, mmctl stores configuration and credentials in:
+
+- **Linux/macOS**: `~/.mmctl/`
+- **Windows**: `%USERPROFILE%\.mmctl\`
+
+The main configuration file is:
+- **Linux/macOS**: `~/.mmctl/config`
+- **Windows**: `%USERPROFILE%\.mmctl\config`
+
+## Post-Installation
+
+After installing mmctl:
+
+1. Verify the installation:
+   ```bash
+   mmctl version
+   ```
+
+2. Set up authentication to your Mattermost server:
+   ```bash
+   mmctl auth login https://your-mattermost-server.com
+   ```
+
+3. Test connectivity:
+   ```bash
+   mmctl system status
+   ```
+
+## Troubleshooting
+
+### Command Not Found
+
+If you get a "command not found" error:
+
+1. Verify mmctl is in your PATH:
+   ```bash
+   which mmctl  # Linux/macOS
+   where mmctl  # Windows
+   ```
+
+2. If not found, add the installation directory to your PATH or move mmctl to a directory already in PATH.
+
+### Permission Denied
+
+On Linux/macOS, ensure the binary is executable:
+```bash
+chmod +x /path/to/mmctl
+```
+
+### SSL Certificate Errors
+
+For self-signed certificates, use the insecure flags:
+```bash
+mmctl --insecure-sha1-intermediate --insecure-tls-version auth login https://your-server.com
+```
+
+<Warning>
+  Only use insecure flags for testing or with self-signed certificates you trust. Never use in production with untrusted certificates.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/cli/authentication">
+    Learn how to authenticate mmctl with your server
+  </Card>
+  <Card title="Commands" icon="terminal" href="/cli/commands">
+    Explore available commands
+  </Card>
+</CardGroup>
